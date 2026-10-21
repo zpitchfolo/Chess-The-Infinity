@@ -1,10 +1,7 @@
 # Chess-The-Infinity
 
+maintenance doc is for maintenance of the chess app to keep it in sync with changes
 
-chess recipe v1.11 is just maintence doc
+milestone is for prompting the same app in a new chat
 
-chess recipe 2 master is for you to able to just past into a chat and get the same kind of game
-
-testgamev03 is to import a game just to see an example if you want
-
-the experiments are versions i tried using the 2.0 master in separate chats to get the same game
+state machine workflow is for app workflow of any app. This chess game is one example. use it like a module.
