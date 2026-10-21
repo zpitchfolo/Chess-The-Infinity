@@ -1,0 +1,2181 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess the Infinity v1.32.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #11131a;
+  --panel: #1b1e28;
+  --panel2: #222633;
+  --line: #353b4c;
+  --text: #edf0fa;
+  --muted: #9ca5ba;
+  --accent: #a78bfa;
+  --accent2: #6ee7d2;
+  --light-square: #d9dfeb;
+  --dark-square: #65758e;
+  --legal: rgba(64,220,161,.62);
+}
+* { box-sizing: border-box; }
+html, body { width:100%; height:100%; margin:0; overflow:hidden; }
+body {
+  background:var(--bg); color:var(--text);
+  font:14px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+button,input { font:inherit; }
+button {
+  border:1px solid var(--line); border-radius:8px;
+  background:var(--panel2); color:var(--text);
+  padding:7px 10px; cursor:pointer; white-space:nowrap;
+}
+button:hover:not(:disabled) { border-color:var(--accent); background:#303447; }
+button:disabled { opacity:.38; cursor:default; }
+button.danger { border-color:#74434e; }
+button.active { border-color:var(--accent2); color:var(--accent2); }
+button:focus-visible { outline:2px solid var(--accent2); outline-offset:2px; }
+
+.topbar {
+  min-height:54px; padding:0 14px; display:flex;
+  align-items:center; gap:8px; border-bottom:1px solid var(--line);
+  background:#171922;
+}
+.brand { font-weight:800; letter-spacing:.3px; font-size:16px; }
+.brand span { color:var(--accent); }
+.top-subtitle,.panel-subtitle { color:var(--muted); font-size:12px; }
+.top-spacer,.header-spacer { flex:1; }
+.status-pill {
+  max-width:20vw; overflow:hidden; text-overflow:ellipsis;
+  color:var(--muted); font-size:12px;
+}
+.top-actions { display:flex; gap:5px; align-items:center; }
+.app {
+  height:calc(100dvh - 54px); min-height:0; display:grid;
+  grid-template-columns:minmax(310px,43%) minmax(0,57%);
+  gap:10px; padding:10px;
+}
+.panel {
+  min-width:0; min-height:0; overflow:hidden;
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:12px; display:flex; flex-direction:column;
+}
+.panel-header {
+  min-height:42px; padding:8px 10px; display:flex;
+  align-items:center; gap:8px; border-bottom:1px solid var(--line);
+}
+.board-controls-header {
+  border-top:1px solid var(--line);
+  border-bottom:0;
+  position:relative;
+}
+.header-turn-label { position:absolute; left:50%; transform:translateX(-50%); font-size:13px; font-weight:750; white-space:nowrap; color:var(--text); }
+@media(max-width:900px) { .board-controls-header { flex-wrap:wrap; } .header-turn-label { position:static; transform:none; margin:0 auto; order:3; } .board-controls-header #flipBtn,.board-controls-header #autoFlipBtn { order:4; } }
+.panel-title { font-weight:750; }
+.board-area {
+  flex:1; min-height:0; display:flex; align-items:center;
+  justify-content:center; padding:10px; overflow:hidden;
+}
+.board {
+  width:100%; max-height:100%; aspect-ratio:1; display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  grid-template-rows:repeat(8,minmax(0,1fr));
+  border:3px solid #090b10; border-radius:3px;
+  box-shadow:0 12px 36px #0005; container-type:size;
+}
+.square {
+  position:relative; display:flex; justify-content:center;
+  align-items:center; min-width:0; min-height:0;
+  cursor:pointer; user-select:none;
+}
+.square.light { background:var(--light-square); }
+.square.dark { background:var(--dark-square); }
+.square.selected::after,.square.last::before {
+  content:""; position:absolute; inset:0; pointer-events:none;
+}
+.square.selected::after { background:#f5d76e88; }
+.square.last::before { background:#f5d76e44; }
+.square.legal::after {
+  content:""; width:27%; height:27%; border-radius:50%;
+  background:var(--legal); position:absolute; z-index:1;
+}
+.square.legal:has(.piece)::after {
+  width:82%; height:82%; background:transparent;
+  border:5px solid var(--legal);
+}
+.piece {
+  z-index:2;
+  font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif;
+  font-size:clamp(22px,5.2vw,58px); line-height:1;
+  cursor:grab; filter:drop-shadow(0 1px 1px #0004);
+}
+.piece.white { color:#fff; text-shadow:0 1px 2px #18202d,0 0 2px #18202d; }
+.piece.black { color:#202534; text-shadow:0 0 1px #fff7; }
+.coord {
+  position:absolute; z-index:3; font-size:10px;
+  font-weight:750; pointer-events:none;
+}
+.coord.file { right:3px; bottom:1px; }
+.coord.rank { top:1px; left:3px; }
+.light .coord { color:#53617a; }
+.dark .coord { color:#edf0fa; }
+
+.board-footer {
+  padding:10px 10px 12px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.move-info {
+  min-height:18px; font-size:12px; color:var(--muted);
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+}
+.move-info strong { color:var(--text); }
+.orientation-label { display:none; }
+.orientation-banner {
+  display:grid;
+  position:relative;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  padding:7px 9px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--panel);
+  color:var(--text);
+  font-size:12px;
+  font-weight:750;
+  letter-spacing:.35px;
+  line-height:1.3;
+  box-shadow:inset 0 1px 0 #ffffff08, 0 3px 10px #0002;
+}
+.orientation-banner .orientation-side {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  justify-self:start;
+  align-self:center;
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+  padding:4px 7px;
+  border:1px solid #0005;
+  border-radius:999px;
+  text-align:center;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.35px;
+  line-height:1.2;
+  white-space:nowrap;
+  box-shadow:0 1px 2px #0002;
+}
+.orientation-banner .orientation-side.white-chip {
+  background:#fff;
+  color:#171922;
+  border-color:#c9ced8;
+}
+.orientation-banner .orientation-side.black-chip {
+  background:#171922;
+  color:#fff;
+  border-color:#454b5a;
+}
+.orientation-banner .orientation-turn {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:1;
+  justify-self:center;
+  padding:9px 15px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  background:transparent;
+  text-align:center;
+  white-space:nowrap;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.8px;
+  box-shadow:0 2px 5px #0002;
+}
+.orientation-banner .orientation-turn.white-to-move {
+  background:#fff;
+  color:#171922;
+  border-color:#c9ced8;
+}
+.orientation-banner .orientation-turn.black-to-move {
+  background:#171922;
+  color:#fff;
+  border-color:#454b5a;
+}
+.orientation-banner .orientation-map {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+  text-align:right;
+}
+.orientation-banner .white-chip,
+.orientation-banner .black-chip {
+  display:inline-block;
+  padding:5px 8px;
+  border:1px solid #0004;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:750;
+  letter-spacing:.25px;
+  white-space:nowrap;
+}
+.orientation-banner .white-chip {
+  background:#fff;
+  color:#171922;
+  border-color:#c9ced8;
+}
+.orientation-banner .black-chip {
+  background:#171922;
+  color:#fff;
+  border-color:#454b5a;
+}
+@media (max-width:560px) {
+  .orientation-banner { grid-template-columns:1fr; justify-items:stretch; }
+  .orientation-banner .orientation-turn {
+    position:static;
+    left:auto;
+    top:auto;
+    transform:none;
+    justify-self:stretch;
+  }
+  .orientation-banner .orientation-map { grid-column:1 / -1; }
+  .orientation-banner .orientation-turn { justify-self:stretch; }
+  .orientation-banner .orientation-map { justify-content:center; text-align:center; }
+}
+.toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:stretch;
+}
+.toolbar button {
+  flex:1 1 125px;
+  min-width:0;
+  min-height:40px;
+  padding:9px 12px;
+  font-size:13px;
+  font-weight:700;
+}
+.history {
+  display:flex; gap:5px; overflow-x:auto; padding:7px 10px;
+  border-top:1px solid var(--line); min-height:43px;
+  scrollbar-width:thin;
+}
+.history button { padding:5px 8px; font-size:11px; flex:0 0 auto; }
+.history button.current { border-color:var(--accent2); background:#21413f; }
+
+.tree-toolbar {
+  display:flex; gap:7px; flex-wrap:wrap; align-items:center;
+  padding:8px 10px; border-bottom:1px solid var(--line);
+}
+.tree-toolbar button { padding:9px 11px; min-height:38px; font-size:14px; font-weight:650; }
+.tree-toolbar .tree-nav-button { padding:9px 13px; }
+.direction-button { min-width:190px; font-weight:700; }
+.tree-viewport {
+  flex:1; min-height:0; position:relative; overflow:hidden;
+  cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; background-color:#151821;
+  background-image:radial-gradient(#42495b 1px,transparent 1px);
+  background-size:22px 22px;
+}
+.tree-viewport.dragging { cursor:grabbing; }
+.tree-viewport.card-mode { overflow-x:hidden; overflow-y:scroll; overscroll-behavior-y:contain; cursor:default; touch-action:pan-y; background-image:none; user-select:auto; -webkit-user-select:auto; }
+.tree-viewport.card-mode #cardView { display:flex; flex-direction:column; width:100%; min-height:100%; height:auto; overflow:visible; }
+.tree-viewport.card-mode #cardView[hidden] { display:none; }
+.tree-viewport.card-mode .tree-canvas, .tree-viewport.card-mode .tree-help { display:none; }
+.card-view { padding:16px; display:flex; flex-direction:column; gap:18px; min-width:0; }
+.card-view[hidden] { display:none; }
+.card-row { min-width:0; width:100%; }
+.card-carousel { width:100%; }
+.card-track { width:0; max-width:calc(100% - 84px); flex:1 1 0; }
+.card-row-head { display:flex; align-items:baseline; gap:8px; margin:0 0 9px; color:var(--text); font-size:13px; font-weight:750; }
+.card-row-head small { color:var(--muted); font-size:11px; font-weight:500; }
+.card-carousel { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-arrow { flex:0 0 34px; width:34px; height:42px; padding:0; font-size:21px; }
+.card-track { display:flex; gap:12px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:8px 7px 14px; scroll-behavior:smooth; scroll-snap-type:x proximity; flex:1; padding-inline:max(7px,calc((100% - 190px)/2)); }
+.node-card { flex:0 0 190px; width:190px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--text); text-align:left; display:flex; flex-direction:column; gap:8px; white-space:normal; scroll-snap-align:center; }
+.node-card:hover { border-color:var(--accent); background:var(--panel2); }
+.node-card.active { border:2px solid var(--accent2); padding:9px; box-shadow:0 0 0 2px #6ee7d233; }
+.node-card.flagged { border-color:#e6b85c; box-shadow:inset 0 0 0 1px #e6b85c55; }
+.node-card.active.flagged { border-color:#e6b85c; box-shadow:0 0 0 2px #6ee7d233,inset 0 0 0 1px #e6b85c55; }
+.node-flag { color:#f1c66d; font-size:15px; line-height:1; font-weight:900; }
+.tree-node.flagged { border:2px solid #e6b85c; box-shadow:0 0 0 3px #e6b85c33,0 3px 10px #0004; }
+.tree-node.flagged.active { border-color:#e6b85c; }
+#flagList { max-width:180px; min-width:130px; min-height:38px; border:1px solid var(--line); border-radius:8px; background:var(--panel2); color:var(--text); padding:7px 9px; font:inherit; }
+@media(max-width:850px) { #flagList { max-width:145px; min-width:110px; font-size:12px; } }
+.node-card-top { display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:12px; font-weight:800; }
+.node-card-turn { color:var(--accent2); font-size:10px; font-weight:700; }
+.mini-board { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); aspect-ratio:1; width:100%; overflow:hidden; border-radius:5px; border:1px solid #0005; }
+.mini-square { display:flex; align-items:center; justify-content:center; aspect-ratio:1; min-width:0; font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif; font-size:clamp(11px,1.35vw,19px); line-height:1; }
+.mini-square.light { background:var(--light-square); }
+.mini-square.dark { background:var(--dark-square); }
+.mini-piece.white { color:#fff; text-shadow:0 1px 2px #111, 0 0 2px #111; }
+.mini-piece.black { color:#171922; text-shadow:0 1px 1px #fff7; }
+.node-card-foot { display:flex; justify-content:space-between; gap:5px; color:var(--muted); font-size:10px; }
+.card-empty { padding:30px; color:var(--muted); text-align:center; }
+.tree-canvas {
+  position:absolute; left:0; top:0; width:1px; height:1px;
+  transform-origin:0 0; user-select:none; -webkit-user-select:none;
+}
+.tree-svg {
+  position:absolute; left:0; top:0; overflow:visible;
+  pointer-events:none;
+}
+.tree-node {
+  position:absolute; width:136px; min-height:82px;
+  transform:translate(-50%,-50%); padding:6px 8px;
+  border-radius:9px; border:1px solid #4a5269;
+  background:#252a38; color:var(--text); text-align:center;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:2px; white-space:normal;
+  box-shadow:0 3px 10px #0004; z-index:1;
+  user-select:none; -webkit-user-select:none;
+}
+.tree-node .node-move { font-size:13px; font-weight:800; }
+.tree-node .node-turn { font-size:10px; color:var(--accent2); }
+.tree-node .node-meta { font-size:10px; color:var(--muted); }
+.node-status {
+  display:inline-block; margin-top:2px; padding:1px 5px;
+  border-radius:4px; font-size:9px; line-height:1.35;
+  font-weight:850; letter-spacing:.35px;
+  background:#343b4e; color:#e2e7f4;
+}
+.node-status.checkmate { background:#702f3d; color:#ffd9df; }
+.node-status.stalemate { background:#685126; color:#ffedbd; }
+.node-status.draw { background:#414653; color:#e3e6ee; }
+.node-status.check { background:#254f53; color:#b8fff2; }
+.node-status.resigned { background:#702f3d; color:#ffd9df; }
+.node-status.result-draw { background:#414653; color:#e3e6ee; }
+.tree-node.root { border-color:#8b98b3; }
+.tree-node.active { border:2px solid var(--accent2); background:#23413f; }
+.tree-node.path { border-color:#8b72d4; }
+.tree-node.check { border-color:#d77c82; }
+.tree-node:hover { background:#353b4e; }
+.tree-node.turn-white {
+  background:#f4f4f7;
+  color:#171922;
+  border-color:#c9ced8;
+}
+.tree-node.turn-black {
+  background:#171922;
+  color:#f5f6fa;
+  border-color:#454b5a;
+}
+.tree-node.turn-white .node-turn,
+.tree-node.turn-white .node-meta { color:#505565; }
+.tree-node.turn-black .node-turn { color:#d4caff; }
+.tree-node.turn-black .node-meta { color:#b7bece; }
+.tree-node.turn-white.active {
+  background:#f4f4f7;
+  color:#171922;
+  border:3px solid #a78bfa;
+  /* Three-layer selection: dark separation, purple outline, soft glow. */
+  box-shadow:0 0 0 4px #242331, 0 0 0 7px #a78bfa, 0 0 20px #a78bfa99, 0 6px 18px #0008;
+  z-index:5;
+  transform:translate(-50%,-50%) scale(1.055);
+}
+.tree-node.turn-white.active::after {
+  /* Four small L-shaped corner markers frame the selected white node. */
+  content:"";
+  position:absolute;
+  inset:-12px;
+  pointer-events:none;
+  border-radius:11px;
+  background:
+    linear-gradient(#c4a7ff,#c4a7ff) left top / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left top / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right top / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right top / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left bottom / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left bottom / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right bottom / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right bottom / 3px 13px no-repeat;
+  z-index:6;
+}
+.tree-node.turn-black.active {
+  background:#171922;
+  color:#f5f6fa;
+  border:3px solid #c4b5fd;
+  /* Match the white-node selection: dark separation, purple outline, soft glow. */
+  box-shadow:0 0 0 4px #242331, 0 0 0 7px #a78bfa, 0 0 20px #a78bfa99, 0 6px 18px #0008;
+  z-index:5;
+  transform:translate(-50%,-50%) scale(1.055);
+}
+.tree-node.turn-black.active::after {
+  /* Matching L-shaped corner markers frame the selected black node. */
+  content:"";
+  position:absolute;
+  inset:-12px;
+  pointer-events:none;
+  border-radius:11px;
+  background:
+    linear-gradient(#c4a7ff,#c4a7ff) left top / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left top / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right top / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right top / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left bottom / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) left bottom / 3px 13px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right bottom / 13px 3px no-repeat,
+    linear-gradient(#c4a7ff,#c4a7ff) right bottom / 3px 13px no-repeat;
+  z-index:6;
+}
+.tree-help {
+  position:absolute; left:10px; bottom:8px; color:#8e97ac;
+  font-size:11px; pointer-events:none; background:#151821d9;
+  padding:4px 6px; border-radius:5px;
+}
+.footerbar {
+  min-height:34px; padding:5px 10px; display:flex;
+  align-items:center; gap:8px; border-top:1px solid var(--line);
+  color:var(--muted); font-size:11px;
+}
+.footerbar strong { color:var(--text); }
+.file-input { display:none; }
+
+@media (max-width:1000px) {
+  .top-subtitle { display:none; }
+  .topbar { padding:0 8px; }
+  .status-pill { display:none; }
+}
+@media (max-width:850px) {
+  .app { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; padding:6px; }
+  .toolbar { gap:6px; }
+  .toolbar button { flex-basis:110px; min-height:38px; padding:8px 9px; }
+  .topbar { gap:5px; }
+  .panel-header { padding:6px; }
+  .board-area { padding:5px; }
+  .board-footer { padding:6px; }
+  .toolbar button { padding:5px 6px; font-size:11px; }
+  .tree-toolbar { padding:6px 7px; gap:5px; }
+  .tree-toolbar button { padding:7px 9px; min-height:36px; font-size:12px; }
+  .tree-toolbar .tree-nav-button { padding:7px 10px; }
+  .tree-node { width:120px; }
+  .direction-button { min-width:0; }
+}
+@media (max-height:650px) {
+  .topbar { min-height:46px; }
+  .app { height:calc(100dvh - 46px); padding:6px; gap:6px; }
+  .panel-header { min-height:34px; padding:5px 8px; }
+  .board-area { padding:5px; }
+  .board-footer { gap:4px; padding:5px 8px; }
+  .toolbar { gap:3px; }
+  .toolbar button { padding:4px 6px; }
+  .history { min-height:35px; padding:4px 7px; }
+  .tree-toolbar { padding:5px 7px; }
+}
+@media (max-width:620px) {
+  .brand { font-size:13px; }
+  .top-actions { gap:3px; }
+  .top-actions button { padding:5px 6px; font-size:11px; }
+  .app { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+}
+/* Appearance customization */
+:root { --selected-square:#E9B949; --last-move-square:transparent; --check-square:transparent; --coord-light:#354156; --coord-dark:#FFFFFF; --board-border:#090B10; }
+.square.last::before { display:none !important; }
+.square.in-check { box-shadow:none !important; }
+.preview-last::after,.preview-check::after { display:none !important; }
+.board { border-color:var(--board-border); }
+.square.selected::after { background:color-mix(in srgb,var(--selected-square) 42%,transparent); box-shadow:inset 0 0 0 3px var(--selected-square); }
+.square.last::before { background:color-mix(in srgb,var(--last-move-square) 28%,transparent); box-shadow:inset 0 0 0 2px var(--last-move-square); }
+.square.in-check { box-shadow:inset 0 0 0 4px var(--check-square); }
+.light .coord { color:var(--coord-light,#53617a); }
+.dark .coord { color:var(--coord-dark,#edf0fa); }
+.piece.white { color:var(--white-fill,#fff); -webkit-text-fill-color:var(--white-fill,#fff); -webkit-text-stroke:.65px var(--white-outline,#18202d); text-shadow:0 1px 1px #0003; }
+.piece.black { color:var(--black-fill,#202534); -webkit-text-fill-color:var(--black-fill,#202534); -webkit-text-stroke:.65px var(--black-outline,#fff); text-shadow:0 1px 1px #0003; }
+.piece.outline { color:transparent !important; -webkit-text-fill-color:transparent !important; text-shadow:none !important; filter:none !important; }
+.piece.white.outline { -webkit-text-stroke:2.5px var(--white-outline,#18202d); }
+.piece.black.outline { -webkit-text-stroke:2.5px var(--black-outline,#fff); }
+.piece.design-serif { font-family:Georgia,"Times New Roman",serif; }
+.piece.design-minimal { font-family:Arial,Helvetica,sans-serif; font-weight:700; }
+.piece.design-outline { font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif; }
+.piece.design-monospace { font-family:"DejaVu Sans Mono","Consolas",monospace; }
+.preview-piece { -webkit-text-fill-color:currentColor; }
+.preview-piece.outline { color:transparent !important; -webkit-text-fill-color:transparent !important; text-shadow:none !important; }
+.preview-piece.outline.preview-white { -webkit-text-stroke:2.5px var(--white-outline,#18202d); }
+.preview-piece.outline.preview-black { -webkit-text-stroke:2.5px var(--black-outline,#fff); }
+.preview-piece:not(.outline).preview-white { -webkit-text-stroke:.65px var(--white-outline,#18202d); }
+.preview-piece:not(.outline).preview-black { -webkit-text-stroke:.65px var(--black-outline,#fff); }
+.appearance-simple-body { gap:14px; }
+.appearance-simple-selects { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.appearance-simple-body > .appearance-note { text-align:center; }
+@media (max-width:650px) { .appearance-simple-selects { grid-template-columns:1fr; } }
+.appearance-button { border-color:#6f5a9e; }
+
+/* Shared themed dialogs */
+dialog.app-dialog, dialog.appearance-dialog { color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 24px 90px #000a; padding:0; max-width:calc(100vw - 28px); max-height:calc(100dvh - 28px); margin:auto; overflow:hidden; }
+dialog.app-dialog { width:min(480px,calc(100vw - 28px)); }
+dialog.app-dialog::backdrop, dialog.appearance-dialog::backdrop { background:#05060bcc; backdrop-filter:blur(3px); animation:dialogBackdropIn .16s ease-out both; }
+dialog.app-dialog[open], dialog.appearance-dialog[open] { animation:dialogPanelIn .18s cubic-bezier(.2,.75,.25,1) both; }
+@keyframes dialogPanelIn { from { opacity:0; transform:translateY(5px) scale(.975); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes dialogBackdropIn { from { opacity:0; } to { opacity:1; } }
+.app-dialog-inner { display:flex; flex-direction:column; max-height:calc(100dvh - 30px); }
+.app-dialog-head { padding:16px 18px 10px; border-bottom:1px solid var(--line); }
+.app-dialog-title { margin:0; font-size:17px; font-weight:800; }
+.app-dialog-message { padding:14px 18px 8px; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; }
+.app-dialog-body { padding:8px 18px 14px; display:grid; gap:12px; }
+.app-dialog-input { width:100%; min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:8px; background:var(--panel2); color:var(--text); }
+.app-dialog-foot { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; padding:12px 18px 16px; border-top:1px solid var(--line); }
+.app-dialog-foot button { min-width:88px; }
+.app-dialog-foot button.primary { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 22%,var(--panel2)); }
+.app-promotion-pieces { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.app-promotion-piece { min-width:0; min-height:92px; display:flex; align-items:center; justify-content:center; font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif; font-size:clamp(42px,9vw,64px); line-height:1; border-radius:10px; }
+.app-promotion-piece .piece { font-size:inherit; cursor:pointer; }
+.square.promotion-target::after { content:""; position:absolute; inset:0; z-index:4; pointer-events:none; border:4px solid var(--accent); background:color-mix(in srgb,var(--accent) 30%,transparent); box-shadow:inset 0 0 0 2px #0005; }
+@media(max-width:420px) { .app-dialog-head { padding:13px 14px 8px; } .app-dialog-message { padding:12px 14px 6px; } .app-dialog-body { padding:8px 14px 12px; } .app-dialog-foot { padding:10px 14px 13px; } .app-promotion-pieces { gap:6px; } .app-promotion-piece { min-height:76px; } }
+
+dialog.appearance-dialog { width:min(900px,calc(100vw - 24px)); max-height:min(88dvh,900px); padding:0; border:1px solid var(--line); border-radius:14px; background:var(--panel); color:var(--text); box-shadow:0 24px 90px #0009; }
+dialog.appearance-dialog::backdrop { background:#05060bcc; backdrop-filter:blur(3px); }
+.appearance-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); }
+.appearance-head h2 { margin:0; font-size:18px; }
+.appearance-body { padding:14px 16px; overflow:auto; display:grid; gap:14px; }
+.appearance-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.appearance-card { min-width:0; border:1px solid var(--line); border-radius:10px; padding:12px; display:grid; gap:10px; }
+.appearance-card h3 { margin:0; font-size:14px; }
+.appearance-field { display:grid; grid-template-columns:minmax(120px,1fr) auto minmax(90px,120px); gap:8px; align-items:center; }
+.appearance-field label { font-size:12px; color:var(--muted); }
+.appearance-field input[type=color] { width:38px; height:30px; padding:2px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); }
+.appearance-field input[type=text] { width:100%; min-width:0; padding:6px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); color:var(--text); text-transform:uppercase; }
+.appearance-select-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-items:end; }
+.appearance-select-row label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
+.appearance-select-row select,.appearance-card select { width:100%; min-width:0; padding:8px; border:1px solid var(--line); border-radius:7px; background:var(--panel2); color:var(--text); }
+.appearance-actions { display:flex; gap:7px; flex-wrap:wrap; }
+.appearance-note { font-size:12px; color:var(--muted); line-height:1.5; }
+.appearance-status { white-space:pre-line; border-radius:8px; padding:9px 10px; background:var(--panel2); font-size:12px; }
+.appearance-status.error { border:1px solid #b45353; color:#ffd0d0; }
+.appearance-status.ok { border:1px solid #397a62; color:#b9f5da; }
+.appearance-foot { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 16px; border-top:1px solid var(--line); }
+.appearance-foot .spacer { flex:1; }
+.live-appearance-preview { grid-template-columns:minmax(0,1fr); }
+.preview-board { width:min(100%,300px); aspect-ratio:2/1; display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(2,1fr); overflow:hidden; border-radius:5px; border:0; margin:auto; }
+.preview-square { position:relative; display:flex; align-items:center; justify-content:center; min-width:0; min-height:0; }
+.preview-light { background:var(--light-square,#D9DFEB); } .preview-dark { background:var(--dark-square,#65758E); }
+.preview-piece { position:relative; z-index:2; font-size:clamp(22px,4vw,42px); line-height:1; }
+.preview-white { color:var(--white-fill,#fff); -webkit-text-stroke:1px var(--white-outline,#18202d); }
+.preview-black { color:var(--black-fill,#202534); -webkit-text-stroke:1px var(--black-outline,#fff); }
+.preview-piece.outline { color:transparent; } .preview-piece.outline.preview-white { -webkit-text-stroke:2px var(--white-outline,#18202d); } .preview-piece.outline.preview-black { -webkit-text-stroke:2px var(--black-outline,#fff); }
+.preview-last::after,.preview-selected::after,.preview-check::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:1; }
+.preview-last::after { background:color-mix(in srgb,var(--last-move-square) 28%,transparent); box-shadow:inset 0 0 0 2px var(--last-move-square); }
+.preview-selected::after { background:color-mix(in srgb,var(--selected-square) 42%,transparent); box-shadow:inset 0 0 0 3px var(--selected-square); }
+.preview-check::after { box-shadow:inset 0 0 0 4px var(--check-square); }
+.preview-legal::after { content:""; position:absolute; width:30%; height:30%; border-radius:50%; background:var(--legal,#40DCA1); }
+.preview-coord { position:absolute; bottom:2px; right:3px; font-size:10px; color:var(--coord-light,#354156); z-index:3; }
+.quick-appearance-content { display:grid; gap:12px; padding:16px; }
+.quick-appearance-content label { display:grid; gap:5px; font-size:12px; color:var(--muted); }
+.quick-appearance-content select { padding:9px; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:7px; }
+@media (max-width:850px) { .board-controls-header { flex-wrap:wrap; } }
+@media (max-width:650px) { .appearance-grid { grid-template-columns:1fr; } .appearance-select-row { grid-template-columns:1fr; } .appearance-field { grid-template-columns:minmax(90px,1fr) auto minmax(80px,100px); } .appearance-head,.appearance-body,.appearance-foot { padding:10px; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">♟ Chess <span>the Infinity</span></div>
+  <div class="top-subtitle">One game. Infinite possible futures.</div>
+  <div class="top-spacer"></div>
+  <div class="status-pill" id="saveStatus">Ready</div>
+  <div class="top-actions">
+    <button id="exportBtn" title="Download the complete tree as JSON">Export JSON</button>
+    <button id="importBtn" title="Load a saved JSON tree">Import JSON</button>
+    <button id="newGameBtn" title="Start a new game">New Game</button>
+    <button id="appearanceBtn" class="appearance-button" title="Open global appearance settings">Appearance</button>
+    <input class="file-input" type="file" id="importFile" accept=".json,application/json">
+  </div>
+</header>
+
+<main class="app">
+  <section class="panel" id="boardPanel">
+
+    <div class="orientation-banner" id="orientationBanner" role="status" aria-live="polite">
+      <span class="orientation-side white-chip" id="orientationSide">WHITE AT BOTTOM</span>
+      <span class="orientation-turn" id="orientationTurn">WHITE TO MOVE</span>
+      <span class="orientation-map" id="orientationMap">
+        <span class="white-chip">TOP: BLACK</span>
+        <span aria-hidden="true">↓</span>
+        <span class="black-chip">BOTTOM: WHITE</span>
+      </span>
+    </div>
+    <div class="board-area" id="boardArea">
+      <div class="board" id="board" aria-label="Chessboard"></div>
+    </div>
+    <div class="panel-header board-controls-header">
+      <div>
+        <div class="panel-title">Chessboard</div>
+        <div class="panel-subtitle" id="positionLabel">Starting position</div>
+      </div>
+      <div class="header-spacer"></div>
+      <strong id="turnLabel" class="header-turn-label">White to move</strong>
+      <button id="flipBtn" title="Flip the board orientation">Flip Board</button>
+      <button id="autoFlipBtn" title="Automatically orient the board toward the side to move">Auto Flip: Off</button>
+      
+    </div>
+    <div class="board-footer">
+
+      <div class="move-info">
+        <span id="gameStatus"></span>
+        <span id="orientationLabel" class="orientation-label">White side at bottom · files a → h</span>
+      </div>
+      <div class="toolbar">
+        <button id="backBtn" title="Go to parent position">← Back</button>
+        <button id="forwardBtn" title="Follow the first child branch">Forward →</button>
+        <button id="deleteBtn" class="danger" title="Delete all branches after this position">Delete Future</button>
+        <button id="resignBtn" class="danger" title="Resign for the side to move">Resign</button>
+        <button id="drawBtn" title="Agree to a draw">Draw</button>
+      </div>
+    </div>
+    <div class="history" id="history" aria-label="Move history"></div>
+  </section>
+
+  <section class="panel" id="treePanel">
+    <div class="tree-toolbar" aria-label="Tree navigation and view controls">
+      <button class="tree-nav-button" id="treeBackBtn" title="Go to the parent position">← Back</button>
+      <button class="tree-nav-button" id="treeForwardBtn" title="Follow the child with the deepest continuation">Forward →</button>
+      <button id="startPositionBtn" title="Return to the starting position">Starting Position</button>
+      <button id="currentPositionBtn" title="Center and zoom to the current position">Current Position</button>
+      <button id="longestBtn" title="Jump to a deepest leaf in the tree">Longest Path</button>
+      <button id="fitBtn" title="Fit the entire tree in view">Fit Tree</button>
+      <button id="treeDirectionBtn" class="direction-button" title="Cycle between top-down, bottom-up, left-to-right and right-to-left layouts">Tree Layout: Top-Down ↓</button>
+      <button id="cardViewBtn" title="Switch between the node map and card view" aria-pressed="false">Card View</button>
+      <button id="toggleFlagBtn" title="Flag or unflag the selected position">⚑ Flag Position</button>
+      <button id="previousFlagBtn" title="Go to the previous flagged position">← Previous Flag</button>
+      <button id="nextFlagBtn" title="Go to the next flagged position">Next Flag →</button>
+      <select id="flagList" aria-label="Flagged positions" title="Jump directly to a flagged position"><option value="">Flag list (0)</option></select>
+    </div>
+    <div class="tree-viewport" id="treeViewport">
+      <div class="card-view" id="cardView" hidden aria-label="Node card view"></div>
+      <div class="tree-canvas" id="treeCanvas">
+        <svg class="tree-svg" id="treeSvg"></svg>
+        <div id="treeNodes"></div>
+      </div>
+      <div class="tree-help">Drag to pan · Scroll to zoom · Click a node to travel</div>
+    </div>
+    <div class="footerbar">
+      <span><strong id="activeNodeLabel">Position 1</strong></span>
+      <span>·</span>
+      <span id="branchLabel">No branches yet</span>
+      <span>·</span>
+      <span class="panel-subtitle" id="treeCount">1 position · 0 moves</span>
+      <div class="header-spacer"></div>
+      <span>Saved in this browser</span>
+    </div>
+  </section>
+</main>
+
+<dialog class="app-dialog" id="appDialog" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage">
+  <div class="app-dialog-inner">
+    <div class="app-dialog-head"><h2 class="app-dialog-title" id="appDialogTitle">Message</h2></div>
+    <div class="app-dialog-message" id="appDialogMessage"></div>
+    <div class="app-dialog-body" id="appDialogBody"></div>
+    <div class="app-dialog-foot" id="appDialogActions"></div>
+  </div>
+</dialog>
+
+<dialog class="appearance-dialog" id="appearanceSettingsDialog" aria-labelledby="appearanceSettingsTitle">
+  <div class="appearance-head"><h2 id="appearanceSettingsTitle">Appearance</h2><div class="header-spacer"></div><button id="closeAppearanceSettingsBtn">Close</button></div>
+  <div class="appearance-body appearance-simple-body">
+    <div class="appearance-select-row appearance-simple-selects">
+      <label>Board theme<select id="boardThemeSelect"></select></label>
+    </div>
+    <div class="appearance-note">Board themes change only the board palette. Piece colors and styles stay fixed: white pieces remain white, and black pieces remain dark. Last-move and check highlights are disabled.</div>
+    <section class="appearance-card live-appearance-preview"><h3>Preview</h3><div class="preview-board" id="appearanceBoardPreview" aria-label="Appearance preview">
+<div class="preview-square preview-light"><span class="preview-piece preview-white">♘</span><span class="preview-coord">a</span></div><div class="preview-square preview-dark"><span class="preview-piece preview-black">♟</span></div>
+<div class="preview-square preview-dark"><span class="preview-piece preview-white">♖</span></div><div class="preview-square preview-light preview-selected"><span class="preview-piece preview-black">♞</span></div>
+<div class="preview-square preview-light"><span class="preview-piece preview-white">♙</span></div><div class="preview-square preview-dark preview-legal"></div>
+<div class="preview-square preview-dark"><span class="preview-piece preview-black">♚</span></div><div class="preview-square preview-light"><span class="preview-piece preview-white">♕</span></div>
+</div></section>
+    <div class="appearance-status" id="appearanceValidationStatus" role="status" aria-live="polite">Choose a board theme to preview it.</div>
+  </div>
+  <div class="appearance-foot"><span id="appearanceActiveLabel">Current appearance</span><div class="spacer"></div><button id="applyAppearanceBtn" class="appearance-button">Apply appearance</button></div>
+</dialog>
+<script>
+(() => {
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+const appDialogEl = $("appDialog");
+let appDialogResolver = null, appDialogKind = null, appDialogReturnValue = null;
+function finishAppDialog(value) { if (!appDialogEl.open) return; appDialogReturnValue=value; appDialogEl.close(); }
+appDialogEl.addEventListener("close", () => { const resolver=appDialogResolver, value=appDialogReturnValue; appDialogResolver=null; appDialogKind=null; appDialogReturnValue=null; if(resolver)resolver(value); });
+appDialogEl.addEventListener("cancel", event => { event.preventDefault(); finishAppDialog(appDialogKind==="confirm"?false:null); });
+appDialogEl.addEventListener("click", event => { if(event.target===appDialogEl)finishAppDialog(appDialogKind==="confirm"?false:null); });
+function showAppDialog({title="Message",message="",kind="alert",defaultValue="",placeholder="",color="w"}={}) {
+  if(appDialogEl.open)finishAppDialog(null);
+  $("appDialogTitle").textContent=title; $("appDialogMessage").textContent=message;
+  const body=$("appDialogBody"),actions=$("appDialogActions"); body.replaceChildren();actions.replaceChildren();appDialogKind=kind;
+  const settle=value=>finishAppDialog(value);
+  if(kind==="promotion"){
+    const row=document.createElement("div");row.className="app-promotion-pieces";
+    const glyphs=color==="w"?{q:"♕",r:"♖",b:"♗",n:"♘"}:{q:"♛",r:"♜",b:"♝",n:"♞"};
+    const labels={q:"Queen",r:"Rook",b:"Bishop",n:"Knight"};
+    for(const key of ["q","r","b","n"]){const button=document.createElement("button");button.type="button";button.className="app-promotion-piece";button.setAttribute("aria-label","Promote to "+labels[key]);button.title=labels[key];const piece=document.createElement("span");piece.className="piece "+(color==="w"?"white":"black");piece.textContent=glyphs[key];button.appendChild(piece);button.addEventListener("click",()=>settle(key));row.appendChild(button);}
+    body.appendChild(row);
+  } else if(kind==="text"){
+    const input=document.createElement("input");input.className="app-dialog-input";input.type="text";input.value=defaultValue;input.placeholder=placeholder;input.autocomplete="off";input.setAttribute("aria-label",title);body.appendChild(input);
+    input.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();settle(input.value);}});
+    requestAnimationFrame(()=>{input.focus();input.select();});
+  }
+  const addButton=(label,value,className="")=>{const button=document.createElement("button");button.type="button";button.textContent=label;if(className)button.className=className;button.addEventListener("click",()=>{if(kind==="text"&&value==="submit"){const input=body.querySelector("input");settle(input?input.value:"");}else settle(value);});actions.appendChild(button);};
+  if(kind==="confirm"){addButton("Cancel",false);addButton("Confirm",true,"primary");}
+  else if(kind==="text"){addButton("Cancel",null);addButton("OK","submit","primary");}
+  else if(kind==="promotion")addButton("Cancel",null);
+  else addButton("OK",true,"primary");
+  return new Promise(resolve=>{appDialogResolver=resolve;appDialogEl.showModal();});
+}
+async function appAlert(message,title="Notice"){await showAppDialog({title,message:String(message),kind:"alert"});}
+async function appConfirm(message,title="Confirm action"){return(await showAppDialog({title,message:String(message),kind:"confirm"}))===true;}
+async function appPrompt(message,defaultValue="",title="Enter a value"){const result=await showAppDialog({title,message:String(message),kind:"text",defaultValue:String(defaultValue??"")});return result===null?null:String(result);}
+
+if (typeof window.Chess !== "function") {
+  const status = $("saveStatus");
+  if (status) status.textContent = "Chess library unavailable";
+  const board = $("board");
+  if (board) board.innerHTML = '<div style="grid-column:1/-1;align-self:center;padding:24px;text-align:center;color:#edf0fa">The chess rules library could not load. Connect to the internet and reload this file. If you are offline, the game cannot start because its chess rules library is hosted externally.</div>';
+  console.error("Chess the Infinity could not start: both chess.js CDN sources failed to load.");
+  return;
+}
+const chess = new Chess();
+
+const PIECES = {
+  w:{k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙"},
+  b:{k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"}
+};
+const STORAGE_KEY = "chess-the-infinity-v1";
+const NODE_W = 136;
+const NODE_H = 98;
+const TOP_LEVEL_GAP = 142;
+const TOP_BRANCH_GAP = 160;
+const SIDE_LEVEL_GAP = 240;
+const SIDE_BRANCH_GAP = 118;
+const MIN_TREE_SCALE = .003;
+
+const DIRECTIONS = [
+  {label:"Top-Down ↓",key:"down"},
+  {label:"Bottom-Up ↑",key:"up"},
+  {label:"Left-to-Right →",key:"right"},
+  {label:"Right-to-Left ←",key:"left"}
+];
+
+let nodes = {};
+let rootId = "n1";
+let currentId = rootId;
+let nextId = 2;
+let flipped = false;
+let autoFlip = false;
+let treeDirection = "down";
+let selectedSquare = null;
+let legalTargets = [];
+let lastMove = null;
+let treeScale = 1;
+let treeX = 50;
+let treeY = 40;
+let treeHasFit = false;
+let saveTimer = null;
+let panState = null;
+
+function makeNode(id,parentId,move,fen,ply) {
+  return {
+    id,parentId,move:move || null,fen,ply,
+    children:[],createdAt:Date.now(),result:null,flagged:false
+  };
+}
+
+function normalizeResult(result) {
+  if (!result || typeof result !== "object") return null;
+  if (result.type === "resignation" &&
+      (result.resigning === "w" || result.resigning === "b")) {
+    return {
+      type:"resignation",
+      resigning:result.resigning,
+      recordedAt:Number.isFinite(result.recordedAt) ? result.recordedAt : Date.now()
+    };
+  }
+  if (result.type === "draw") {
+    return {
+      type:"draw",
+      recordedAt:Number.isFinite(result.recordedAt) ? result.recordedAt : Date.now()
+    };
+  }
+  return null;
+}
+
+function initTree() {
+  nodes = {};
+  rootId = "n1";
+  currentId = rootId;
+  nextId = 2;
+  nodes[rootId] = makeNode(rootId,null,null,chess.fen(),0);
+  lastMove = null;
+  selectedSquare = null;
+  legalTargets = [];
+  treeHasFit = false;
+  saveState();
+  renderAll();
+}
+
+function currentNode() { return nodes[currentId]; }
+
+function getFlaggedNodesInTreeOrder() {
+  const flagged=[];
+  const visited=new Set();
+  function visit(id) {
+    if (visited.has(id) || !nodes[id]) return;
+    visited.add(id);
+    if (nodes[id].flagged) flagged.push(nodes[id]);
+    (nodes[id].children || []).forEach(visit);
+  }
+  visit(rootId);
+  return flagged;
+}
+
+function flagLabel(node) {
+  const move=node.id===rootId ? "Starting position" : sanForNode(node);
+  return "P"+(node.ply+1)+" · "+move;
+}
+
+function renderFlagControls() {
+  const flagged=getFlaggedNodesInTreeOrder();
+  const list=$("flagList");
+  if (!list) return;
+  const previousValue=list.value;
+  list.replaceChildren();
+  const placeholder=document.createElement("option");
+  placeholder.value="";
+  placeholder.textContent="Flag list ("+flagged.length+")";
+  list.appendChild(placeholder);
+  flagged.forEach(node=>{
+    const option=document.createElement("option");
+    option.value=node.id;
+    option.textContent="⚑ "+flagLabel(node);
+    list.appendChild(option);
+  });
+  list.value=flagged.some(node=>node.id===previousValue) ? previousValue : "";
+  const index=flagged.findIndex(node=>node.id===currentId);
+  $("toggleFlagBtn").textContent=nodes[currentId]?.flagged ? "⚑ Unflag Position" : "⚑ Flag Position";
+  $("toggleFlagBtn").classList.toggle("active",!!nodes[currentId]?.flagged);
+  $("previousFlagBtn").disabled=flagged.length===0;
+  $("nextFlagBtn").disabled=flagged.length===0;
+  $("previousFlagBtn").title=flagged.length ? "Go to the previous flagged position ("+flagged.length+" total)" : "No flagged positions yet";
+  $("nextFlagBtn").title=flagged.length ? "Go to the next flagged position ("+flagged.length+" total)" : "No flagged positions yet";
+  if (index>=0) list.value=currentId;
+}
+
+function navigateFlag(direction) {
+  const flagged=getFlaggedNodesInTreeOrder();
+  if (!flagged.length) { appAlert("No positions are flagged yet. Select a position and choose Flag Position first."); return; }
+  const index=flagged.findIndex(node=>node.id===currentId);
+  let targetIndex;
+  if (index<0) targetIndex=direction>0 ? 0 : flagged.length-1;
+  else targetIndex=(index+direction+flagged.length)%flagged.length;
+  gotoNode(flagged[targetIndex].id);
+}
+
+function pathTo(id) {
+  const path = [];
+  let n = nodes[id];
+  const seen = new Set();
+  while (n && !seen.has(n.id)) {
+    seen.add(n.id);
+    path.push(n.id);
+    n = n.parentId ? nodes[n.parentId] : null;
+  }
+  return path.reverse();
+}
+
+function gotoNode(id) {
+  if (!nodes[id]) return;
+  currentId = id;
+  chess.load(nodes[id].fen);
+  selectedSquare = null;
+  legalTargets = [];
+  const node = nodes[id];
+  lastMove = node.move ? {from:node.move.from,to:node.move.to} : null;
+  if (autoFlip) flipped = chess.turn() === "b";
+  renderAll();
+  // Card selection updates the active position without moving the hidden tree.
+  // The tree is centered once, when the user switches back to Tree View.
+  if (!cardViewEnabled) centerNode(id);
+  saveState();
+}
+
+function sanForNode(node) {
+  if (node?.result?.type === "resignation") return "Resignation";
+  if (node?.result?.type === "draw") return "Draw agreed";
+  if (!node || !node.move) return "Start";
+  return node.move.san || node.move.from + "–" + node.move.to;
+}
+
+function handleSquareClick(square) {
+  if (currentNode().result || chess.game_over()) return;
+  const piece = chess.get(square);
+
+  if (selectedSquare && legalTargets.includes(square)) {
+    attemptMove(selectedSquare,square);
+    return;
+  }
+  if (piece && piece.color === chess.turn()) {
+    selectedSquare = square;
+    legalTargets = chess.moves({square,verbose:true}).map(m => m.to);
+    renderBoard();
+    return;
+  }
+  selectedSquare = null;
+  legalTargets = [];
+  renderBoard();
+}
+
+function renderBoard() {
+  const boardEl = $("board");
+  boardEl.innerHTML = "";
+  const board = chess.board();
+
+  for (let row=0; row<8; row++) {
+    for (let col=0; col<8; col++) {
+      const r = flipped ? 7-row : row;
+      const c = flipped ? 7-col : col;
+      const squareName = "abcdefgh"[c] + (8-r);
+      const piece = board[r][c];
+      const sq = document.createElement("div");
+      sq.className = "square " + ((r+c)%2===0 ? "light" : "dark");
+      sq.dataset.square = squareName;
+
+      if (lastMove && (squareName===lastMove.from || squareName===lastMove.to)) sq.classList.add("last");
+      const kingInCheck = piece && piece.type==="k" && piece.color===chess.turn() && chess.in_check();
+      if (kingInCheck) sq.classList.add("in-check");
+      if (selectedSquare===squareName) sq.classList.add("selected");
+      if (legalTargets.includes(squareName)) sq.classList.add("legal");
+
+      if (piece) {
+        const span = document.createElement("span");
+        const activeAppearance = appearancePreviewing && appearanceDraft ? appearanceDraft : appearanceStore.current;
+        span.className = "piece " + (piece.color==="w" ? "white" : "black");
+        const sideStyle = activeAppearance.pieceStyle[piece.color];
+        span.classList.add(sideStyle==="outline" ? "outline" : "filled");
+        span.classList.add("design-"+(activeAppearance.design || "classic"));
+        span.textContent = PIECES[piece.color][piece.type];
+        sq.appendChild(span);
+      }
+      if (col===0) {
+        const rank = document.createElement("span");
+        rank.className = "coord rank";
+        rank.textContent = String(8-r);
+        sq.appendChild(rank);
+      }
+      if (row===7) {
+        const file = document.createElement("span");
+        file.className = "coord file";
+        file.textContent = "abcdefgh"[c];
+        sq.appendChild(file);
+      }
+      sq.addEventListener("click",() => handleSquareClick(squareName));
+      boardEl.appendChild(sq);
+    }
+  }
+
+  $("positionLabel").textContent = currentId===rootId
+    ? "Starting position"
+    : "After " + sanForNode(currentNode()) + " · Position " + currentNode().ply;
+  $("orientationLabel").textContent = flipped
+    ? "White side at top · files h → a"
+    : "White side at bottom · files a → h";
+  $("orientationSide").textContent = flipped ? "BLACK AT BOTTOM" : "WHITE AT BOTTOM";
+  $("orientationSide").className = flipped ? "orientation-side black-chip" : "orientation-side white-chip";
+  $("orientationMap").innerHTML = flipped
+    ? '<span class="white-chip">TOP: WHITE</span><span aria-hidden="true">↓</span><span class="black-chip">BOTTOM: BLACK</span>'
+    : '<span class="black-chip">TOP: BLACK</span><span aria-hidden="true">↓</span><span class="white-chip">BOTTOM: WHITE</span>';
+}
+
+async function attemptMove(from,to) {
+  if (currentNode().result || chess.game_over()) return;
+  let promotion = "q";
+  const movingPiece = chess.get(from);
+  if (movingPiece && movingPiece.type==="p" && (to[1]==="8" || to[1]==="1")) {
+    const targetSquare=document.querySelector('.square[data-square="'+to+'"]');
+    if(targetSquare)targetSquare.classList.add("promotion-target");
+    const answer=await showAppDialog({title:"Promote pawn",message:"Choose a piece for the pawn on "+to+".",kind:"promotion",color:movingPiece.color});
+    if(targetSquare)targetSquare.classList.remove("promotion-target");
+    if(answer===null)return;
+    promotion=answer;
+  }
+
+  const move = chess.move({from,to,promotion});
+  if (!move) {
+    selectedSquare = null;
+    legalTargets = [];
+    renderBoard();
+    return;
+  }
+
+  const id = "n" + nextId++;
+  const parent = currentNode();
+  const storedMove = {
+    color:move.color,from:move.from,to:move.to,flags:move.flags,
+    piece:move.piece,captured:move.captured || null,
+    promotion:move.promotion || null,san:move.san
+  };
+  const node = makeNode(id,parent.id,storedMove,chess.fen(),parent.ply+1);
+  nodes[id] = node;
+  parent.children.push(id);
+  currentId = id;
+  lastMove = {from:move.from,to:move.to};
+  selectedSquare = null;
+  legalTargets = [];
+  if (autoFlip) flipped = chess.turn()==="b";
+  renderAll();
+  saveState();
+}
+
+function renderHistory() {
+  const el = $("history");
+  el.innerHTML = "";
+  const path = pathTo(currentId);
+
+  path.forEach((id,index) => {
+    const n = nodes[id];
+    const btn = document.createElement("button");
+    btn.textContent = index===0 ? "Starting position" :
+      n.result?.type === "resignation" ? "Resignation (result)" :
+      n.result?.type === "draw" ? "Draw agreed (result)" :
+      Math.ceil(n.ply/2) + (n.ply%2 ? ". " : "... ") + sanForNode(n);
+    if (id===currentId) btn.classList.add("current");
+    btn.title = "Go to position " + (index+1);
+    btn.addEventListener("click",() => gotoNode(id));
+    el.appendChild(btn);
+  });
+  el.scrollLeft = el.scrollWidth;
+}
+
+function getGameStatus() {
+  const result = currentNode().result;
+  if (result?.type==="resignation") {
+    return (result.resigning==="w" ? "Black" : "White") + " wins by resignation";
+  }
+  if (result?.type==="draw") return "Draw agreed";
+  if (chess.in_checkmate()) return "Checkmate";
+  if (chess.in_stalemate()) return "Stalemate";
+  if (chess.in_draw()) return "Draw";
+  if (chess.in_check()) return "Check";
+  return "";
+}
+
+function renderStatus() {
+  const displayedTurn = chess.turn();
+  const sideToMove = displayedTurn==="w" ? "White" : "Black";
+  $("turnLabel").textContent = sideToMove + " to move";
+  $("orientationTurn").textContent = sideToMove.toUpperCase() + " TO MOVE";
+  $("orientationTurn").className = "orientation-turn " + (displayedTurn==="w" ? "white-to-move" : "black-to-move");
+
+  const atRoot = currentId===rootId;
+  const hasChildren = currentNode().children.length>0;
+  const terminal = !!currentNode().result || chess.game_over();
+
+  $("backBtn").disabled = !currentNode().parentId;
+  $("forwardBtn").disabled = !hasChildren;
+  $("treeBackBtn").disabled = !currentNode().parentId;
+  $("treeForwardBtn").disabled = !hasChildren;
+  $("startPositionBtn").disabled = atRoot;
+  $("deleteBtn").disabled = !hasChildren;
+  $("resignBtn").disabled = terminal;
+  $("drawBtn").disabled = terminal;
+
+  $("treeCount").textContent = Object.keys(nodes).length + " positions · " +
+    Object.values(nodes).reduce((sum,n) => sum+(n.move ? 1 : 0),0) + " moves";
+  $("activeNodeLabel").textContent = "Position " + (currentNode().ply+1);
+  $("branchLabel").textContent = hasChildren
+    ? currentNode().children.length + (currentNode().children.length===1 ? " continuation" : " continuations")
+    : "No branches from here";
+  $("saveStatus").textContent = "Autosaved";
+}
+
+function renderAll() {
+  renderBoard();
+  renderHistory();
+  renderStatus();
+  renderTree();
+  renderFlagControls();
+}
+
+function isVerticalTree() {
+  return treeDirection==="down" || treeDirection==="up";
+}
+
+function computeTreeLayout() {
+  const allIds = Object.keys(nodes);
+  const depth = {};
+  const childrenById = {};
+
+  allIds.forEach(id => {
+    childrenById[id] = (nodes[id].children || []).filter(cid => nodes[cid]);
+  });
+
+  function getDepth(id,d) {
+    depth[id] = d;
+    childrenById[id].forEach(child => getDepth(child,d+1));
+  }
+  getDepth(rootId,0);
+
+  const primary = {};
+  let leafIndex = 0;
+  const branchGap = isVerticalTree() ? TOP_BRANCH_GAP : SIDE_BRANCH_GAP;
+
+  function place(id) {
+    const kids = childrenById[id];
+    if (!kids.length) {
+      primary[id] = leafIndex*branchGap;
+      leafIndex++;
+    } else {
+      kids.forEach(place);
+      primary[id] = kids.reduce((sum,cid) => sum+primary[cid],0)/kids.length;
+    }
+  }
+  place(rootId);
+
+  const layout = {};
+  allIds.forEach(id => {
+    const d = depth[id] || 0;
+    const levelGap = isVerticalTree() ? TOP_LEVEL_GAP : SIDE_LEVEL_GAP;
+    const levelPosition = d*levelGap;
+    const branchPosition = primary[id];
+
+    switch (treeDirection) {
+      case "down": layout[id] = {x:branchPosition,y:levelPosition}; break;
+      case "up": layout[id] = {x:branchPosition,y:-levelPosition}; break;
+      case "right": layout[id] = {x:levelPosition,y:branchPosition}; break;
+      case "left": layout[id] = {x:-levelPosition,y:branchPosition}; break;
+    }
+  });
+
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  allIds.forEach(id => {
+    const p = layout[id];
+    minX = Math.min(minX,p.x);
+    maxX = Math.max(maxX,p.x);
+    minY = Math.min(minY,p.y);
+    maxY = Math.max(maxY,p.y);
+  });
+
+  return {
+    layout,
+    minX:minX-NODE_W/2,
+    maxX:maxX+NODE_W/2,
+    minY:minY-NODE_H/2,
+    maxY:maxY+NODE_H/2
+  };
+}
+
+let cardViewEnabled = false;
+let cardSelectionInProgress = false;
+
+function renderMiniBoard(fen) {
+  const board = document.createElement("div");
+  board.className = "mini-board";
+  board.setAttribute("aria-hidden","true");
+  let position;
+  try { position = new Chess(fen).board(); } catch (_) { return board; }
+  for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+    const square = document.createElement("div");
+    square.className = "mini-square " + ((r+c)%2===0 ? "light" : "dark");
+    const piece = position[r][c];
+    if (piece) {
+      const glyph = document.createElement("span");
+      glyph.className = "mini-piece " + (piece.color==="w" ? "white" : "black");
+      glyph.textContent = PIECES[piece.color][piece.type];
+      square.appendChild(glyph);
+    }
+    board.appendChild(square);
+  }
+  return board;
+}
+
+function renderNodeCard(n) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "node-card" + (n.id===currentId ? " active" : "") + (n.flagged ? " flagged" : "");
+  el.dataset.nodeId = n.id;
+  let turn = "Side to move";
+  try { turn = new Chess(n.fen).turn()==="w" ? "White to move" : "Black to move"; } catch (_) {}
+  const top = document.createElement("div");
+  top.className = "node-card-top";
+  const move = document.createElement("span");
+  move.textContent = n.id===rootId ? "Starting Position" : sanForNode(n);
+  const ply = document.createElement("span");
+  ply.textContent = "P" + (n.ply+1);
+  if (n.flagged) { const flag=document.createElement("span"); flag.className="node-flag"; flag.textContent="⚑"; flag.setAttribute("aria-label","Flagged position"); top.append(move,flag,ply); }
+  else top.append(move,ply);
+  const turnLabel = document.createElement("div");
+  turnLabel.className = "node-card-turn";
+  turnLabel.textContent = turn;
+  el.append(top,turnLabel,renderMiniBoard(n.fen));
+  const foot = document.createElement("div");
+  foot.className = "node-card-foot";
+  const childCount = document.createElement("span");
+  childCount.textContent = n.children.length + (n.children.length===1 ? " continuation" : " continuations");
+  const branchLabel = document.createElement("span");
+  branchLabel.textContent = n.id===rootId ? "Root" : (n.parentId && nodes[n.parentId] && nodes[n.parentId].children.length>1 ? "Branch" : "");
+  foot.append(childCount,branchLabel);
+  el.appendChild(foot);
+  el.title = "Position " + (n.ply+1) + " · " + turn + " · " + n.fen;
+  el.setAttribute("aria-label","Select position " + (n.ply+1) + ", " + turn);
+  el.addEventListener("click",() => {
+    // Keep the existing carousel DOM alive for card-to-card navigation.
+    cardSelectionInProgress = true;
+    try { gotoNode(n.id); } finally { cardSelectionInProgress = false; }
+  });
+  return el;
+}
+
+function centerCardInRow(card, behavior = "smooth") {
+  if (!card) return;
+  const track = card.closest(".card-row")?.querySelector(".card-track");
+  if (!track) return;
+  const trackRect = track.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const currentCardCenter = cardRect.left + cardRect.width/2;
+  const trackCenter = trackRect.left + track.clientWidth/2;
+  const target = track.scrollLeft + currentCardCenter - trackCenter;
+  track.scrollTo({left:Math.max(0,Math.min(target,track.scrollWidth-track.clientWidth)),behavior});
+}
+
+function renderCardView(revealCurrent = false) {
+  const view = $("cardView");
+
+  // Keep each carousel's position across the redraw triggered by selecting a
+  // node. Row keys are based on the branch's starting node, not its display text.
+  const savedScroll = new Map();
+  view.querySelectorAll(".card-row").forEach(row => {
+    const track = row.querySelector(".card-track");
+    if (track && row.dataset.rowKey) savedScroll.set(row.dataset.rowKey,track.scrollLeft);
+  });
+  view.replaceChildren();
+
+  const addRow = (rowKey, title, subtitle, nodeList) => {
+    if (!nodeList.length) return;
+    const row = document.createElement("section");
+    row.className = "card-row";
+    row.dataset.rowKey = rowKey;
+    const heading = document.createElement("h3");
+    heading.className = "card-row-head";
+    heading.append(document.createTextNode(title));
+    if (subtitle) {
+      const small = document.createElement("small");
+      small.textContent = subtitle;
+      heading.appendChild(small);
+    }
+    const carousel = document.createElement("div");
+    carousel.className = "card-carousel";
+    const left = document.createElement("button");
+    left.type = "button"; left.className = "card-arrow"; left.textContent = "‹";
+    left.setAttribute("aria-label","Scroll " + title + " left");
+    const track = document.createElement("div");
+    track.className = "card-track";
+    nodeList.forEach(n => track.appendChild(renderNodeCard(n)));
+    const right = document.createElement("button");
+    right.type = "button"; right.className = "card-arrow"; right.textContent = "›";
+    right.setAttribute("aria-label","Scroll " + title + " right");
+    const scrollTrack = direction => {
+      const amount = Math.max(180,track.clientWidth*0.8);
+      track.scrollBy({left:direction*amount,behavior:"smooth"});
+    };
+    left.addEventListener("click",() => scrollTrack(-1));
+    right.addEventListener("click",() => scrollTrack(1));
+    carousel.append(left,track,right);
+    row.append(heading,carousel);
+    view.appendChild(row);
+  };
+
+  // A row follows a branch through its ordinary continuation. When a fork is
+  // reached, the first child continues that row and each alternative gets a
+  // separate row of its own.
+  const seenRows = new Set();
+  function addBranchRow(startId, title, subtitle) {
+    const rowNodes = [];
+    let id = startId;
+    while (id && nodes[id] && !rowNodes.includes(nodes[id])) {
+      rowNodes.push(nodes[id]);
+      const children = (nodes[id].children || []).map(cid => nodes[cid]).filter(Boolean);
+      if (!children.length) break;
+      if (children.length > 1) {
+        children.slice(1).forEach((child,index) => {
+          if (!seenRows.has(child.id)) {
+            seenRows.add(child.id);
+            addBranchRow(child.id,"Alternate branch from Position " + (nodes[id].ply+1),"Alternative " + (index+1));
+          }
+        });
+      }
+      id = children[0].id;
+    }
+    if (rowNodes.length) addRow("branch:" + startId,title,subtitle,rowNodes);
+  }
+
+  const root = nodes[rootId];
+  if (root) {
+    const rootChildren = (root.children || []).map(id => nodes[id]).filter(Boolean);
+    addRow("root","Starting position","Root node",[root]);
+    if (rootChildren.length) {
+      rootChildren.slice(1).forEach((child,index) => {
+        if (!seenRows.has(child.id)) {
+          seenRows.add(child.id);
+          addBranchRow(child.id,"Alternate branch from starting position","Alternative " + (index+1));
+        }
+      });
+      addBranchRow(rootChildren[0].id,"mainline","Primary continuation");
+    }
+  }
+  if (!view.children.length) {
+    const empty = document.createElement("div");
+    empty.className = "card-empty";
+    empty.textContent = "No positions to display yet.";
+    view.appendChild(empty);
+  }
+
+  // Restore each row's exact horizontal position after a rebuild.
+  view.querySelectorAll(".card-row").forEach(row => {
+    const track = row.querySelector(".card-track");
+    if (!track) return;
+    const rowKey = row.dataset.rowKey;
+    if (rowKey && savedScroll.has(rowKey)) track.scrollLeft = savedScroll.get(rowKey);
+  });
+
+  // When entering Card View from the node tree, center the current node in
+  // its own carousel. Other rows retain their independent scroll positions.
+  if (revealCurrent) centerCardInRow(view.querySelector(".node-card.active"),"auto");
+}
+function setCardViewEnabled(enabled) {
+  cardViewEnabled = !!enabled;
+  $("treeViewport").classList.toggle("card-mode",cardViewEnabled);
+  $("cardView").hidden = !cardViewEnabled;
+  $("treeCanvas").hidden = cardViewEnabled;
+  $("cardViewBtn").textContent = cardViewEnabled ? "Tree Map View" : "Card View";
+  $("cardViewBtn").setAttribute("aria-pressed",String(cardViewEnabled));
+  if (cardViewEnabled) {
+    renderCardView();
+    // The tree-map selection becomes the active card. Wait one frame so the
+    // newly visible card view has its final layout before measuring/centering.
+    requestAnimationFrame(() => centerCardInRow($("cardView").querySelector(".node-card.active"),"auto"));
+  } else {
+    const viewport = $("treeViewport");
+
+    // Card View uses native scrolling on this same viewport. Reset that scroll
+    // offset before restoring the transformed tree canvas, or both offsets
+    // combine and make the tree appear to drift while zooming.
+    viewport.scrollTop = 0;
+    viewport.scrollLeft = 0;
+
+    renderTree();
+
+    // Wait until the tree canvas is visible and the viewport has its final
+    // dimensions before centering the selected node.
+    requestAnimationFrame(() => {
+      if (cardViewEnabled) return;
+      treeScale = Math.max(treeScale, 0.8);
+      centerNode(currentId);
+    });
+  }
+}
+
+function renderTree() {
+  if (cardViewEnabled) {
+    if (cardSelectionInProgress) {
+      // The selected card stays in the same DOM and viewport; only its active
+      // styling changes, so selecting it cannot reset or animate the carousel.
+      $("cardView").querySelectorAll(".node-card").forEach(card => {
+        card.classList.toggle("active",card.dataset.nodeId===currentId);
+      });
+      centerCardInRow($("cardView").querySelector('.node-card[data-node-id="' + currentId + '"]'));
+      return;
+    }
+    renderCardView();
+    return;
+  }
+  const canvas = $("treeCanvas");
+  const nodesEl = $("treeNodes");
+  const svg = $("treeSvg");
+  nodesEl.innerHTML = "";
+  svg.innerHTML = "";
+
+  const {layout,minX,maxX,minY,maxY} = computeTreeLayout();
+  const offsetX = 30-minX;
+  const offsetY = 30-minY;
+
+  // These dimensions are the actual canvas bounds used by Fit Tree.
+  const width = Math.max(100,maxX-minX+60);
+  const height = Math.max(100,maxY-minY+60);
+  canvas.style.width = width+"px";
+  canvas.style.height = height+"px";
+  svg.setAttribute("width",width);
+  svg.setAttribute("height",height);
+  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+
+  const activePath = new Set(pathTo(currentId));
+  Object.values(nodes).forEach(n => {
+    if (!n.parentId || !nodes[n.parentId]) return;
+    const p = layout[n.parentId];
+    const c = layout[n.id];
+    const x1=p.x+offsetX,y1=p.y+offsetY;
+    const x2=c.x+offsetX,y2=c.y+offsetY;
+    const line = document.createElementNS("http://www.w3.org/2000/svg","path");
+    let d;
+    if (isVerticalTree()) {
+      const mid=(y1+y2)/2;
+      d=`M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`;
+    } else {
+      const mid=(x1+x2)/2;
+      d=`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+    }
+    line.setAttribute("d",d);
+    line.setAttribute("fill","none");
+    line.setAttribute("stroke",activePath.has(n.id) ? "#9b83ed" : "#566078");
+    line.setAttribute("stroke-width",activePath.has(n.id) ? "2.5" : "1.5");
+    svg.appendChild(line);
+  });
+
+  Object.values(nodes).forEach(n => {
+    const p=layout[n.id];
+    const el=document.createElement("button");
+    el.className="tree-node";
+    if (n.id===rootId) el.classList.add("root");
+    if (n.flagged) el.classList.add("flagged");
+    if (n.id===currentId) el.classList.add("active");
+    else if (activePath.has(n.id)) el.classList.add("path");
+
+    let positionStatus="";
+    let nodeTurn="";
+    try {
+      const temp=new Chess(n.fen);
+      nodeTurn=temp.turn()==="w" ? "White to move" : "Black to move";
+      el.classList.add(temp.turn()==="w" ? "turn-white" : "turn-black");
+      if (temp.in_checkmate()) {
+        positionStatus="CHECKMATE";
+        el.classList.add("check");
+      } else if (temp.in_stalemate()) {
+        positionStatus="STALEMATE";
+        el.classList.add("stalemate");
+      } else if (temp.in_draw()) {
+        positionStatus="DRAW";
+        el.classList.add("draw");
+      } else if (temp.in_check()) {
+        positionStatus="CHECK";
+        el.classList.add("check");
+      }
+    } catch (_) {}
+
+    el.style.left=(p.x+offsetX)+"px";
+    el.style.top=(p.y+offsetY)+"px";
+
+    const move=document.createElement("span");
+    move.className="node-move";
+    move.textContent=n.id===rootId ? "♟ Start" : sanForNode(n);
+
+    const turn=document.createElement("span");
+    turn.className="node-turn";
+    turn.textContent=nodeTurn;
+
+    const meta=document.createElement("span");
+    meta.className="node-meta";
+    meta.textContent="Ply "+n.ply+" · "+n.children.length+
+      (n.children.length===1 ? " child" : " children");
+
+    el.append(move,turn,meta);
+    if (n.flagged) { const flag=document.createElement("span"); flag.className="node-flag"; flag.textContent="⚑ FLAGGED"; el.appendChild(flag); }
+
+    if (positionStatus) {
+      const status=document.createElement("span");
+      status.className="node-status "+positionStatus.toLowerCase();
+      status.textContent=positionStatus;
+      el.appendChild(status);
+    }
+
+    if (n.result?.type==="resignation") {
+      const status=document.createElement("span");
+      status.className="node-status resigned";
+      status.textContent="RESIGNED";
+      el.appendChild(status);
+    } else if (n.result?.type==="draw") {
+      const status=document.createElement("span");
+      status.className="node-status result-draw";
+      status.textContent="DRAW AGREED";
+      el.appendChild(status);
+    }
+
+    const resultTitle=n.result?.type==="resignation"
+      ? " · " + (n.result.resigning==="w" ? "White" : "Black") + " resigned"
+      : n.result?.type==="draw" ? " · Draw agreed" : "";
+
+    el.title="Position "+(n.ply+1)+
+      (positionStatus ? " · "+positionStatus : "")+
+      resultTitle+" · "+n.fen;
+    el.setAttribute("aria-label","Position "+(n.ply+1)+
+      ", "+nodeTurn+(positionStatus ? ", "+positionStatus : "")+resultTitle);
+    el.addEventListener("click",e => {
+      e.stopPropagation();
+      gotoNode(n.id);
+    });
+    nodesEl.appendChild(el);
+  });
+
+  applyTreeTransform();
+  if (!treeHasFit) fitTree();
+  updateDirectionButton();
+}
+
+function updateDirectionButton() {
+  const direction=DIRECTIONS.find(d => d.key===treeDirection);
+  $("treeDirectionBtn").textContent="Tree Layout: "+direction.label;
+}
+
+function applyTreeTransform() {
+  $("treeCanvas").style.transform=
+    `translate(${treeX}px, ${treeY}px) scale(${treeScale})`;
+}
+
+function fitTree() {
+  const vp=$("treeViewport");
+  if (!vp.clientWidth || !vp.clientHeight) return;
+
+  // Use the same bounds and dimensions as renderTree. The canvas already
+  // includes the coordinate offset, so do not apply that offset again.
+  const {minX,maxX,minY,maxY}=computeTreeLayout();
+  const contentW=Math.max(100,maxX-minX+60);
+  const contentH=Math.max(100,maxY-minY+60);
+  const margin=28;
+  const availableW=Math.max(1,vp.clientWidth-margin*2);
+  const availableH=Math.max(1,vp.clientHeight-margin*2);
+
+  treeScale=Math.min(availableW/contentW,availableH/contentH,1.35);
+  treeScale=Math.max(MIN_TREE_SCALE,treeScale);
+
+  // Center the actual rendered canvas, including negative-coordinate layouts.
+  treeX=(vp.clientWidth-contentW*treeScale)/2;
+  treeY=(vp.clientHeight-contentH*treeScale)/2;
+  treeHasFit=true;
+  applyTreeTransform();
+}
+
+function centerNode(id) {
+  const {layout,minX,minY}=computeTreeLayout();
+  const p=layout[id];
+  if (!p) return;
+  const vp=$("treeViewport");
+  const offsetX=30-minX;
+  const offsetY=30-minY;
+  treeX=vp.clientWidth/2-(p.x+offsetX)*treeScale;
+  treeY=vp.clientHeight/2-(p.y+offsetY)*treeScale;
+  treeHasFit=true;
+  applyTreeTransform();
+}
+
+function focusNodeContext(id) {
+  const vp=$("treeViewport");
+  const {layout,minX,minY}=computeTreeLayout();
+  if (!vp.clientWidth || !vp.clientHeight || !layout[id]) return;
+
+  const focusIds=new Set([id]);
+  const selected=nodes[id];
+
+  if (selected.parentId && nodes[selected.parentId]) {
+    const parent=nodes[selected.parentId];
+    focusIds.add(parent.id);
+    (parent.children || []).forEach(siblingId => {
+      if (nodes[siblingId]) focusIds.add(siblingId);
+    });
+  }
+  (selected.children || []).forEach(childId => {
+    if (nodes[childId]) focusIds.add(childId);
+  });
+
+  const offsetX=30-minX;
+  const offsetY=30-minY;
+  const points=[...focusIds].map(focusId => ({
+    x:layout[focusId].x+offsetX,
+    y:layout[focusId].y+offsetY
+  }));
+  const left=Math.min(...points.map(p => p.x-NODE_W/2));
+  const right=Math.max(...points.map(p => p.x+NODE_W/2));
+  const top=Math.min(...points.map(p => p.y-NODE_H/2));
+  const bottom=Math.max(...points.map(p => p.y+NODE_H/2));
+  const boxW=Math.max(1,right-left);
+  const boxH=Math.max(1,bottom-top);
+  const margin=34;
+  const availableW=Math.max(1,vp.clientWidth-margin*2);
+  const availableH=Math.max(1,vp.clientHeight-margin*2);
+  const targetScale=Math.min(1.15,availableW/boxW,availableH/boxH);
+  treeScale=Math.max(.3,targetScale);
+
+  const centerX=(left+right)/2;
+  const centerY=(top+bottom)/2;
+  treeX=vp.clientWidth/2-centerX*treeScale;
+  treeY=vp.clientHeight/2-centerY*treeScale;
+  treeHasFit=true;
+  applyTreeTransform();
+}
+
+function zoomTree(factor,cx,cy) {
+  const vp=$("treeViewport");
+  const rect=vp.getBoundingClientRect();
+  const px=cx==null ? vp.clientWidth/2 : cx-rect.left;
+  const py=cy==null ? vp.clientHeight/2 : cy-rect.top;
+  const oldScale=treeScale;
+  const nextScale=Math.max(MIN_TREE_SCALE,Math.min(2.5,oldScale*factor));
+  const worldX=(px-treeX)/oldScale;
+  const worldY=(py-treeY)/oldScale;
+  treeScale=nextScale;
+  treeX=px-worldX*nextScale;
+  treeY=py-worldY*nextScale;
+  treeHasFit=true;
+  applyTreeTransform();
+}
+
+$("treeViewport").addEventListener("wheel",e => {
+  // In Card View, let native vertical scrolling work. The tree-map wheel
+  // gesture is reserved for zooming only while the map itself is visible.
+  if ($("treeViewport").classList.contains("card-mode")) return;
+  e.preventDefault();
+  zoomTree(e.deltaY<0 ? 1.12 : 1/1.12,e.clientX,e.clientY);
+},{passive:false});
+
+$("treeViewport").addEventListener("pointerdown",e => {
+  if (e.button!==0 || e.target.closest(".tree-node") || e.target.closest("#cardView") || $("treeViewport").classList.contains("card-mode")) return;
+  e.preventDefault();
+  panState={x:e.clientX,y:e.clientY,tx:treeX,ty:treeY};
+  $("treeViewport").classList.add("dragging");
+  $("treeViewport").setPointerCapture(e.pointerId);
+});
+$("treeViewport").addEventListener("pointermove",e => {
+  if (!panState) return;
+  treeX=panState.tx+e.clientX-panState.x;
+  treeY=panState.ty+e.clientY-panState.y;
+  treeHasFit=true;
+  applyTreeTransform();
+});
+function stopPan() {
+  panState=null;
+  $("treeViewport").classList.remove("dragging");
+}
+$("treeViewport").addEventListener("pointerup",stopPan);
+$("treeViewport").addEventListener("pointercancel",stopPan);
+$("treeViewport").addEventListener("lostpointercapture",stopPan);
+
+$("cardViewBtn").addEventListener("click",() => setCardViewEnabled(!cardViewEnabled));
+$("fitBtn").addEventListener("click",fitTree);
+$("currentPositionBtn").addEventListener("click",() => focusNodeContext(currentId));
+
+$("toggleFlagBtn").addEventListener("click",() => {
+  const node=currentNode();
+  if (!node) return;
+  node.flagged=!node.flagged;
+  renderAll();
+  saveState();
+});
+$("previousFlagBtn").addEventListener("click",() => navigateFlag(-1));
+$("nextFlagBtn").addEventListener("click",() => navigateFlag(1));
+$("flagList").addEventListener("change",event => {
+  if (event.target.value && nodes[event.target.value]) gotoNode(event.target.value);
+});
+
+$("treeDirectionBtn").addEventListener("click",() => {
+  const index=DIRECTIONS.findIndex(d => d.key===treeDirection);
+  treeDirection=DIRECTIONS[(index+1)%DIRECTIONS.length].key;
+  treeHasFit=false;
+  renderTree();
+  fitTree();
+  saveState();
+});
+
+function longestLeafFrom(id) {
+  let best=id;
+  let bestDepth=nodes[id].ply;
+  function visit(nid) {
+    const n=nodes[nid];
+    if (!n) return;
+    if (!n.children.length && n.ply>bestDepth) {
+      best=nid;
+      bestDepth=n.ply;
+    }
+    n.children.forEach(visit);
+  }
+  visit(id);
+  return best;
+}
+
+$("longestBtn").addEventListener("click",() => {
+  const id=longestLeafFrom(rootId);
+  gotoNode(id);
+  focusNodeContext(id);
+});
+
+function goBack() {
+  const parent=currentNode().parentId;
+  if (parent) gotoNode(parent);
+}
+function deepestContinuationLength(id) {
+  const node=nodes[id];
+  if (!node || !node.children.length) return 0;
+  let deepest=0;
+  for (const childId of node.children) {
+    deepest=Math.max(deepest,1+deepestContinuationLength(childId));
+  }
+  return deepest;
+}
+
+function goForward() {
+  const children=currentNode().children;
+  if (!children.length) return;
+
+  let bestChild=children[0];
+  let bestLength=deepestContinuationLength(bestChild);
+  for (let i=1;i<children.length;i++) {
+    const childId=children[i];
+    const length=deepestContinuationLength(childId);
+    if (length>bestLength) {
+      bestChild=childId;
+      bestLength=length;
+    }
+  }
+  gotoNode(bestChild);
+}
+function goToStart() {
+  gotoNode(rootId);
+  focusNodeContext(rootId);
+}
+
+$("backBtn").addEventListener("click",goBack);
+$("forwardBtn").addEventListener("click",goForward);
+$("treeBackBtn").addEventListener("click",goBack);
+$("treeForwardBtn").addEventListener("click",goForward);
+$("startPositionBtn").addEventListener("click",goToStart);
+
+$("resignBtn").addEventListener("click",async () => {
+  const node=currentNode();
+  if (node.result || chess.game_over()) return;
+  const resigning=chess.turn();
+  const side=resigning==="w" ? "White" : "Black";
+  const winner=resigning==="w" ? "Black" : "White";
+  if (!await appConfirm(side+" resigns. "+winner+" wins. Record this result?")) return;
+
+  // A resignation is its own terminal child, leaving this position playable.
+  const id="n"+nextId++;
+  const resultNode=makeNode(id,node.id,null,node.fen,node.ply);
+  resultNode.result={type:"resignation",resigning,recordedAt:Date.now()};
+  nodes[id]=resultNode;
+  node.children.push(id);
+  currentId=id;
+  selectedSquare=null;
+  legalTargets=[];
+  renderAll();
+  centerNode(id);
+  saveState();
+});
+
+$("drawBtn").addEventListener("click",async () => {
+  const node=currentNode();
+  if (node.result || chess.game_over()) return;
+  if (!await appConfirm("Record an agreed draw at this position?")) return;
+
+  // A draw agreement is its own terminal child, leaving the original position playable.
+  const id="n"+nextId++;
+  const resultNode=makeNode(id,node.id,null,node.fen,node.ply);
+  resultNode.result={type:"draw",recordedAt:Date.now()};
+  nodes[id]=resultNode;
+  node.children.push(id);
+  currentId=id;
+  selectedSquare=null;
+  legalTargets=[];
+  renderAll();
+  centerNode(id);
+  saveState();
+});
+
+$("flipBtn").addEventListener("click",() => {
+  flipped=!flipped;
+  autoFlip=false;
+  $("autoFlipBtn").textContent="Auto Flip: Off";
+  $("autoFlipBtn").classList.remove("active");
+  renderBoard();
+  saveState();
+});
+
+$("autoFlipBtn").addEventListener("click",() => {
+  autoFlip=!autoFlip;
+  $("autoFlipBtn").textContent=autoFlip ? "Auto Flip: On" : "Auto Flip: Off";
+  $("autoFlipBtn").classList.toggle("active",autoFlip);
+  if (autoFlip) flipped=chess.turn()==="b";
+  renderBoard();
+  saveState();
+});
+
+$("deleteBtn").addEventListener("click",async () => {
+  const node=currentNode();
+  if (!node.children.length) return;
+  if (!await appConfirm("Delete every continuation after this position? This cannot be undone.")) return;
+
+  function removeBranch(id) {
+    const n=nodes[id];
+    if (!n) return;
+    [...n.children].forEach(removeBranch);
+    delete nodes[id];
+  }
+  [...node.children].forEach(removeBranch);
+  node.children=[];
+  treeHasFit=false;
+  renderAll();
+  centerNode(currentId);
+  saveState();
+});
+
+$("newGameBtn").addEventListener("click",async () => {
+  if (!await appConfirm("Start a new game? The current tree will be replaced.")) return;
+  chess.reset();
+  flipped=false;
+  autoFlip=false;
+  treeDirection="down";
+  $("autoFlipBtn").textContent="Auto Flip: Off";
+  $("autoFlipBtn").classList.remove("active");
+  treeScale=1;
+  treeX=50;
+  treeY=40;
+  treeHasFit=false;
+  initTree();
+});
+
+function exportData() {
+  return {
+    format:"ChessTheInfinity",
+    version:1,
+    exportedAt:new Date().toISOString(),
+    rootId,currentId,nextId,flipped,autoFlip,treeDirection,
+    nodes:Object.values(nodes)
+  };
+}
+
+$("exportBtn").addEventListener("click",() => {
+  const data=JSON.stringify(exportData(),null,2);
+  const blob=new Blob([data],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="chess-the-infinity.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+$("importBtn").addEventListener("click",() => $("importFile").click());
+
+$("importFile").addEventListener("change",async e => {
+  const file=e.target.files[0];
+  e.target.value="";
+  if (!file) return;
+
+  try {
+    const parsed=JSON.parse(await file.text());
+    const imported=validateImport(parsed);
+    if (!await appConfirm("Replace the current tree with the imported tree?")) return;
+
+    nodes=imported.nodes;
+    rootId=imported.rootId;
+    currentId=imported.currentId;
+    nextId=imported.nextId;
+    flipped=imported.flipped;
+    autoFlip=imported.autoFlip;
+    treeDirection=imported.treeDirection;
+
+    chess.load(nodes[currentId].fen);
+    $("autoFlipBtn").textContent=autoFlip ? "Auto Flip: On" : "Auto Flip: Off";
+    $("autoFlipBtn").classList.toggle("active",autoFlip);
+    treeHasFit=false;
+    selectedSquare=null;
+    legalTargets=[];
+    const cm=currentNode().move;
+    lastMove=cm ? {from:cm.from,to:cm.to} : null;
+    renderAll();
+    fitTree();
+    focusNodeContext(currentId);
+    saveState();
+  } catch (err) {
+    appAlert("Couldn't import this tree: "+err.message);
+  }
+});
+
+function validateImport(data) {
+  if (!data || data.format!=="ChessTheInfinity" || !Array.isArray(data.nodes)) {
+    throw new Error("This isn't a Chess the Infinity JSON file.");
+  }
+
+  const incoming={};
+  data.nodes.forEach(n => {
+    if (!n || typeof n.id!=="string" || typeof n.fen!=="string") {
+      throw new Error("A position is missing required data.");
+    }
+    if (incoming[n.id]) throw new Error("Duplicate position ID: "+n.id);
+
+    const test=new Chess();
+    if (!test.load(n.fen)) throw new Error("Invalid chess position: "+n.id);
+
+    incoming[n.id]={
+      id:n.id,
+      flagged:n.flagged===true,
+      parentId:n.parentId || null,
+      move:n.move || null,
+      fen:n.fen,
+      ply:Number.isInteger(n.ply) ? n.ply : 0,
+      children:Array.isArray(n.children) ? n.children.slice() : [],
+      createdAt:n.createdAt || Date.now(),
+      result:normalizeResult(n.result)
+    };
+  });
+
+  if (!incoming[data.rootId] || incoming[data.rootId].parentId!==null) {
+    throw new Error("Root position is missing or invalid.");
+  }
+  if (!incoming[data.currentId]) throw new Error("Current position is missing.");
+
+  for (const n of Object.values(incoming)) {
+    if (n.id!==data.rootId && !incoming[n.parentId]) {
+      throw new Error("A position has a missing parent.");
+    }
+    for (const childId of n.children) {
+      if (!incoming[childId] || incoming[childId].parentId!==n.id) {
+        throw new Error("Invalid child relationship at "+n.id+".");
+      }
+    }
+  }
+
+  const seen=new Set();
+  function visit(id) {
+    if (seen.has(id)) throw new Error("Cycle detected in the tree.");
+    seen.add(id);
+    incoming[id].children.forEach(visit);
+  }
+  visit(data.rootId);
+  if (seen.size!==Object.keys(incoming).length) {
+    throw new Error("Some positions aren't connected to the root.");
+  }
+
+  return {
+    nodes:incoming,
+    rootId:data.rootId,
+    currentId:data.currentId,
+    nextId:Number.isInteger(data.nextId) ? data.nextId : Object.keys(incoming).length+1,
+    flipped:!!data.flipped,
+    autoFlip:!!data.autoFlip,
+    treeDirection:DIRECTIONS.some(d => d.key===data.treeDirection) ? data.treeDirection : "down"
+  };
+}
+
+function saveState() {
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(exportData()));
+      $("saveStatus").textContent="Autosaved";
+    } catch (_) {
+      $("saveStatus").textContent="Local save unavailable";
+    }
+  },100);
+}
+
+function loadSavedState() {
+  try {
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+
+    const data=validateImport(JSON.parse(raw));
+    nodes=data.nodes;
+    rootId=data.rootId;
+    currentId=data.currentId;
+    nextId=data.nextId;
+    flipped=data.flipped;
+    autoFlip=data.autoFlip;
+    treeDirection=data.treeDirection;
+    chess.load(nodes[currentId].fen);
+
+    $("autoFlipBtn").textContent=autoFlip ? "Auto Flip: On" : "Auto Flip: Off";
+    $("autoFlipBtn").classList.toggle("active",autoFlip);
+    updateDirectionButton();
+
+    const m=currentNode().move;
+    lastMove=m ? {from:m.from,to:m.to} : null;
+    return true;
+  } catch (err) {
+    console.warn("Saved tree couldn't be restored:",err);
+    return false;
+  }
+}
+
+
+const APPEARANCE_KEY="chess-the-infinity-appearance-v1";
+const DEFAULT_COLORS={lightSquare:"#D9DFEB",darkSquare:"#65758E",boardBorder:"#090B10",lastMove:"#C58A2B",selected:"#E9B949",legal:"#40DCA1",check:"#DC3545",coordLight:"#354156",coordDark:"#FFFFFF",whiteFill:"#FFFFFF",whiteOutline:"#18202D",blackFill:"#202534",blackOutline:"#FFFFFF"};
+const BOARD_COLOR_KEYS=["lightSquare","darkSquare","boardBorder","lastMove","selected","legal","check","coordLight","coordDark"];
+const PIECE_COLOR_KEYS=["whiteFill","whiteOutline","blackFill","blackOutline"];
+const cloneJSON=value=>JSON.parse(JSON.stringify(value));
+function baseAppearance(){return{boardThemeId:"classic",pieceSetId:"classic",combinedPresetId:null,design:"classic",pieceStyle:{w:"filled",b:"filled"},colors:{...cloneJSON(DEFAULT_COLORS),whiteFill:"#FFFFFF",whiteOutline:"#18202D",blackFill:"#202534",blackOutline:"#FFFFFF"},isModified:false};}
+function defaultAppearanceStore(){return{current:baseAppearance(),custom:{boardThemes:[],pieceSets:[],combined:[]},recent:{boardThemes:["classic"],pieceSets:["classic"],combined:["classic-combined"]}};}
+const BUILTIN_BOARD_THEMES=[
+{id:"classic",name:"Slate Classic",colors:{lightSquare:"#D9DFEB",darkSquare:"#65758E",boardBorder:"#090B10",coordLight:"#354156",coordDark:"#FFFFFF"}},
+{id:"forest",name:"Forest",colors:{lightSquare:"#E5E8D6",darkSquare:"#547A61",boardBorder:"#101710",coordLight:"#263B2D",coordDark:"#FFFFFF"}},
+{id:"amethyst",name:"Amethyst",colors:{lightSquare:"#E9E1F5",darkSquare:"#665080",boardBorder:"#08050C",coordLight:"#3C2C50",coordDark:"#FFFFFF"}},
+{id:"ruby",name:"Ruby Twilight",colors:{lightSquare:"#F4E5D9",darkSquare:"#852E43",boardBorder:"#080306",coordLight:"#51202D",coordDark:"#FFFFFF"}},
+{id:"ocean",name:"Deep Ocean",colors:{lightSquare:"#D8EAF0",darkSquare:"#276678",boardBorder:"#0A252D",coordLight:"#24434A",coordDark:"#FFFFFF"}},
+{id:"jade",name:"Jade Garden",colors:{lightSquare:"#E1EBDD",darkSquare:"#47745B",boardBorder:"#13251A",coordLight:"#263E2D",coordDark:"#FFFFFF"}},
+{id:"rose",name:"Dusty Rose",colors:{lightSquare:"#F3E2E6",darkSquare:"#A65D73",boardBorder:"#351923",coordLight:"#663746",coordDark:"#FFFFFF"}},
+{id:"lavender",name:"Lavender Mist",colors:{lightSquare:"#EEE9F8",darkSquare:"#8B7BAE",boardBorder:"#27203A",coordLight:"#504366",coordDark:"#FFFFFF"}},
+{id:"ember",name:"Ember",colors:{lightSquare:"#F2DCCB",darkSquare:"#A84D35",boardBorder:"#30150F",coordLight:"#693323",coordDark:"#FFFFFF"}},
+{id:"sand",name:"Desert Sand",colors:{lightSquare:"#F4E8CF",darkSquare:"#927448",boardBorder:"#302313",coordLight:"#5B472B",coordDark:"#FFFFFF"}},
+{id:"midnight",name:"Midnight",colors:{lightSquare:"#B9C5D8",darkSquare:"#35435C",boardBorder:"#090D17",coordLight:"#27344A",coordDark:"#FFFFFF"}},
+{id:"mono",name:"Monochrome",colors:{lightSquare:"#E8E8E8",darkSquare:"#666666",boardBorder:"#111111",coordLight:"#333333",coordDark:"#FFFFFF"}},
+{id:"ice",name:"Arctic Ice",colors:{lightSquare:"#E5F7FA",darkSquare:"#4E8E9B",boardBorder:"#12343B",coordLight:"#28515A",coordDark:"#FFFFFF"}},
+{id:"copper",name:"Copper",colors:{lightSquare:"#F0DFD0",darkSquare:"#A66D4F",boardBorder:"#332016",coordLight:"#63412F",coordDark:"#FFFFFF"}},
+{id:"plum",name:"Black Plum",colors:{lightSquare:"#E9DDEC",darkSquare:"#654267",boardBorder:"#211325",coordLight:"#49304D",coordDark:"#FFFFFF"}},
+{id:"teal",name:"Teal Neon",colors:{lightSquare:"#D6ECE8",darkSquare:"#287D78",boardBorder:"#0A2927",coordLight:"#24524F",coordDark:"#FFFFFF"}},
+{id:"blue",name:"Royal Blue",colors:{lightSquare:"#DDE7F8",darkSquare:"#4267A9",boardBorder:"#111D37",coordLight:"#2A416A",coordDark:"#FFFFFF"}},
+{id:"charcoal",name:"Charcoal",colors:{lightSquare:"#C9CDD2",darkSquare:"#4A5058",boardBorder:"#0B0D10",coordLight:"#30353B",coordDark:"#FFFFFF"}}
+];
+const BUILTIN_PIECE_SETS=[
+{id:"classic",name:"Classic Filled",design:"classic",pieceStyle:{w:"filled",b:"filled"},colors:{whiteFill:"#FFFFFF",whiteOutline:"#18202D",blackFill:"#202534",blackOutline:"#FFFFFF"}}
+];
+function builtinCombined(){return[
+{id:"classic-combined",name:"Classic Complete",appearance:baseAppearance()},
+{id:"amethyst-nocturne",name:"Amethyst Nocturne",appearance:{...baseAppearance(),boardThemeId:"amethyst",pieceSetId:"classic",colors:{...cloneJSON(DEFAULT_COLORS),...cloneJSON(BUILTIN_BOARD_THEMES.find(x=>x.id==="amethyst").colors)}}}
+];}
+let appearanceStore=defaultAppearanceStore(),appearanceDraft=null,appearanceDraftValid=true,appearancePreviewing=false;
+function allBoardThemes(){return BUILTIN_BOARD_THEMES;}
+function allPieceSets(){return[...BUILTIN_PIECE_SETS,...appearanceStore.custom.pieceSets];}
+function allCombinedPresets(){return[...builtinCombined(),...appearanceStore.custom.combined];}
+function safeColor(v){return typeof v==="string"&&/^#[0-9a-fA-F]{6}$/.test(v);}
+function hexRgb(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);}
+function validateAppearance(a){
+ if(!a||!a.colors)return{valid:false,errors:["Appearance data is missing."]};
+ const required=["lightSquare","darkSquare","boardBorder","coordLight","coordDark"],errors=[];
+ for(const k of required)if(!safeColor(a.colors[k]))errors.push("Invalid HEX color for "+k+".");
+ return{valid:errors.length===0,errors};
+}
+function updateAppearanceBoardPreview(a){const c=a.colors,r=document.documentElement.style;
+ r.setProperty("--light-square",c.lightSquare);r.setProperty("--dark-square",c.darkSquare);r.setProperty("--last-move-square",c.lastMove);r.setProperty("--selected-square",c.selected);r.setProperty("--legal",c.legal+"99");r.setProperty("--check-square",c.check);r.setProperty("--coord-light",c.coordLight);r.setProperty("--white-fill",c.whiteFill);r.setProperty("--white-outline",c.whiteOutline);r.setProperty("--black-fill",c.blackFill);r.setProperty("--black-outline",c.blackOutline);
+ const b=$("appearanceBoardPreview");if(b)b.querySelectorAll(".preview-piece").forEach(p=>{const side=p.classList.contains("preview-white")?"w":"b";p.classList.toggle("outline",a.pieceStyle[side]==="outline");p.classList.remove("design-classic","design-serif","design-minimal","design-outline","design-monospace");p.classList.add("design-"+(a.design||"classic"));});
+}
+function applyAppearanceCss(a){
+ const r=document.documentElement.style,c=a.colors;
+ r.setProperty("--light-square",c.lightSquare);r.setProperty("--dark-square",c.darkSquare);r.setProperty("--board-border",c.boardBorder);
+ r.setProperty("--last-move-square",c.lastMove);r.setProperty("--selected-square",c.selected);r.setProperty("--legal",c.legal+"99");
+ r.setProperty("--check-square",c.check);r.setProperty("--coord-light",c.coordLight);r.setProperty("--coord-dark",c.coordDark);
+ r.setProperty("--white-fill",c.whiteFill);r.setProperty("--white-outline",c.whiteOutline);r.setProperty("--black-fill",c.blackFill);r.setProperty("--black-outline",c.blackOutline);updateAppearanceBoardPreview(a);renderBoard();
+}
+function saveAppearanceStore(){try{localStorage.setItem(APPEARANCE_KEY,JSON.stringify(appearanceStore));$("saveStatus").textContent="Game and appearance saved";}catch(_){$("saveStatus").textContent="Appearance save unavailable";}}
+function loadAppearanceStore(){
+ try{const raw=localStorage.getItem(APPEARANCE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d||!d.current||!d.current.colors)return;
+ const m=defaultAppearanceStore();m.current={...m.current,...d.current,colors:{...m.current.colors,...d.current.colors},pieceStyle:{w:"filled",b:"filled"},design:"classic",pieceSetId:"classic"};m.current.colors.whiteFill="#FFFFFF";m.current.colors.whiteOutline="#18202D";m.current.colors.blackFill="#202534";m.current.colors.blackOutline="#FFFFFF";
+ if(d.custom&&typeof d.custom==="object")for(const k of ["boardThemes","pieceSets","combined"])if(Array.isArray(d.custom[k]))m.custom[k]=d.custom[k].filter(x=>x&&typeof x.id==="string"&&typeof x.name==="string");
+ if(d.recent&&typeof d.recent==="object")for(const k of ["boardThemes","pieceSets","combined"])if(Array.isArray(d.recent[k]))m.recent[k]=d.recent[k].filter(x=>typeof x==="string").slice(0,5);
+ if(validateAppearance(m.current).valid)appearanceStore=m;
+ }catch(err){console.warn("Appearance settings couldn't be restored:",err);}
+}
+function rememberPreset(cat,id){const a=appearanceStore.recent[cat];appearanceStore.recent[cat]=[id,...a.filter(x=>x!==id)].slice(0,5);}
+function showAppearanceStatus(msg,valid){const e=$("appearanceValidationStatus");e.textContent=msg;e.className="appearance-status "+(valid?"ok":"error");}
+function populatePresetSelect(id,items,selected,placeholder){
+ const e=$(id);e.innerHTML="";if(placeholder){const o=document.createElement("option");o.value="";o.textContent=placeholder;e.appendChild(o);}
+ items.forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=x.name+(x.custom?" · Custom":"");e.appendChild(o);});
+ if(selected&&[...e.options].some(o=>o.value===selected))e.value=selected;else if(e.options.length)e.selectedIndex=0;
+}
+function markCustom(items,category){const ids=new Set((category==="boardThemes"?BUILTIN_BOARD_THEMES:category==="pieceSets"?BUILTIN_PIECE_SETS:builtinCombined()).map(x=>x.id));return items.map(x=>({...x,custom:!ids.has(x.id)}));}
+function refreshAppearanceSelects(){
+ const uniqueThemes=[];const seen=new Set();
+ for(const theme of BUILTIN_BOARD_THEMES){const key=[theme.colors.lightSquare,theme.colors.darkSquare,theme.colors.boardBorder,theme.colors.coordLight,theme.colors.coordDark].join("|");if(seen.has(key))continue;seen.add(key);uniqueThemes.push(theme);}
+ populatePresetSelect("boardThemeSelect",uniqueThemes,appearanceDraft?.boardThemeId||appearanceStore.current.boardThemeId);
+}
+function syncAppearanceForm(){const a=appearanceDraft;for(const i of document.querySelectorAll("[data-color]"))i.value=a.colors[i.dataset.color];for(const i of document.querySelectorAll("[data-hex]"))i.value=a.colors[i.dataset.hex];$("appearanceActiveLabel").textContent="Current board: "+(a.boardThemeId||"Classic")+(a.isModified?" · Modified":"");}
+function previewAppearanceDraft(){appearancePreviewing=true;applyAppearanceCss(appearanceDraft);const v=validateAppearance(appearanceDraft);showAppearanceStatus(v.valid?"Theme preview ready. Select Apply appearance to keep these changes.":"Preview only. Cannot apply or save yet:\\n• "+v.errors.join("\\n• "),v.valid);$("applyAppearanceBtn").disabled=!v.valid;}
+function beginAppearanceEdit(){appearanceDraft=cloneJSON(appearanceStore.current);syncAppearanceForm();refreshAppearanceSelects();previewAppearanceDraft();}
+function closeAppearanceDialog(d){if(d.open)d.close();appearanceDraft=null;appearancePreviewing=false;applyAppearanceCss(appearanceStore.current);}
+function useBoardTheme(id){const p=allBoardThemes().find(x=>x.id===id);if(!p)return;appearanceDraft.colors={...appearanceDraft.colors,...cloneJSON(p.colors)};appearanceDraft.boardThemeId=p.id;appearanceDraft.combinedPresetId=null;appearanceDraft.isModified=true;refreshAppearanceSelects();syncAppearanceForm();previewAppearanceDraft();}
+function usePieceSet(id){const p=allPieceSets().find(x=>x.id===id);if(!p)return;appearanceDraft.design="classic";appearanceDraft.pieceStyle={w:"filled",b:"filled"};appearanceDraft.colors.whiteFill="#FFFFFF";appearanceDraft.colors.whiteOutline="#18202D";appearanceDraft.colors.blackFill="#202534";appearanceDraft.colors.blackOutline="#FFFFFF";appearanceDraft.pieceSetId=p.id;appearanceDraft.combinedPresetId=null;appearanceDraft.isModified=true;refreshAppearanceSelects();syncAppearanceForm();previewAppearanceDraft();}
+function useCombinedPreset(id){const p=allCombinedPresets().find(x=>x.id===id);if(!p)return;const a=cloneJSON(p.appearance);a.combinedPresetId=p.id;a.isModified=false;const v=validateAppearance(a);if(!v.valid){showAppearanceStatus("Preset rejected. Current appearance is unchanged. "+v.errors.join(" "),false);return;}appearanceDraft=a;syncAppearanceForm();refreshAppearanceSelects();previewAppearanceDraft();}
+function applyAppearanceDraft(){const v=validateAppearance(appearanceDraft);if(!v.valid){showAppearanceStatus("Cannot apply: "+v.errors.join(" "),false);return;}appearanceDraft.design="classic";appearanceDraft.pieceStyle={w:"filled",b:"filled"};appearanceDraft.colors.whiteFill="#FFFFFF";appearanceDraft.colors.whiteOutline="#18202D";appearanceDraft.colors.blackFill="#202534";appearanceDraft.colors.blackOutline="#FFFFFF";appearanceStore.current=cloneJSON(appearanceDraft);rememberPreset("boardThemes",appearanceStore.current.boardThemeId||"classic");saveAppearanceStore();applyAppearanceCss(appearanceStore.current);closeAppearanceDialog($("appearanceSettingsDialog"));}
+async function askPresetName(defaultName){const n=await appPrompt("Name this custom preset:",defaultName||"My Custom Theme","Name preset");if(n===null)return null;const t=n.trim();if(!t){appAlert("Preset names cannot be empty.");return null;}return t;}
+function makeId(prefix){return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7);}
+function commitDraftAsCurrent(){appearanceStore.current=cloneJSON(appearanceDraft);saveAppearanceStore();applyAppearanceCss(appearanceStore.current);}
+async function savePreset(category){
+ const v=validateAppearance(appearanceDraft);if(!v.valid){showAppearanceStatus("Cannot save an invalid appearance. "+v.errors.join(" "),false);return;}const name=await askPresetName();if(!name)return;let p;
+ if(category==="boardThemes")p={id:makeId("board"),name,colors:Object.fromEntries(BOARD_COLOR_KEYS.map(k=>[k,appearanceDraft.colors[k]]))};
+ if(category==="pieceSets")p={id:makeId("pieces"),name,design:appearanceDraft.design,pieceStyle:cloneJSON(appearanceDraft.pieceStyle),colors:Object.fromEntries(PIECE_COLOR_KEYS.map(k=>[k,appearanceDraft.colors[k]]))};
+ if(category==="combined")p={id:makeId("combined"),name,appearance:cloneJSON({...appearanceDraft,combinedPresetId:null,isModified:false})};
+ appearanceStore.custom[category].push(p);
+ if(category==="boardThemes"){appearanceDraft.boardThemeId=p.id;appearanceDraft.combinedPresetId=null;rememberPreset("boardThemes",p.id);}
+ if(category==="pieceSets"){appearanceDraft.pieceSetId=p.id;appearanceDraft.combinedPresetId=null;rememberPreset("pieceSets",p.id);}
+ if(category==="combined"){appearanceDraft.combinedPresetId=p.id;appearanceDraft.isModified=false;rememberPreset("combined",p.id);}
+ commitDraftAsCurrent();refreshAppearanceSelects();syncAppearanceForm();showAppearanceStatus("Saved new custom preset: "+name,true);
+}
+function selectedCustomPreset(category){const id=$(category==="boardThemes"?"boardThemeSelect":category==="pieceSets"?"pieceSetSelect":"combinedPresetSelect").value;return appearanceStore.custom[category].find(x=>x.id===id);}
+async function overwritePreset(category){
+ const p=selectedCustomPreset(category);if(!p){appAlert("Select a custom preset first. Built-in presets cannot be overwritten.");return;}const v=validateAppearance(appearanceDraft);if(!v.valid){showAppearanceStatus("Cannot overwrite with invalid colors. "+v.errors.join(" "),false);return;}if(!await appConfirm("Overwrite the saved preset '"+p.name+"' with the current settings?"))return;
+ if(category==="boardThemes")p.colors=Object.fromEntries(BOARD_COLOR_KEYS.map(k=>[k,appearanceDraft.colors[k]]));
+ if(category==="pieceSets"){p.design=appearanceDraft.design;p.pieceStyle=cloneJSON(appearanceDraft.pieceStyle);p.colors=Object.fromEntries(PIECE_COLOR_KEYS.map(k=>[k,appearanceDraft.colors[k]]));}
+ if(category==="combined"){p.appearance=cloneJSON({...appearanceDraft,combinedPresetId:p.id,isModified:false});appearanceDraft.combinedPresetId=p.id;appearanceDraft.isModified=false;}
+ commitDraftAsCurrent();saveAppearanceStore();refreshAppearanceSelects();syncAppearanceForm();showAppearanceStatus("Overwrote custom preset: "+p.name,true);
+}
+async function resetAppearanceCategory(category){if(!await appConfirm("Reset "+(category==="board"?"board colors":"piece appearance")+" to built-in defaults?"))return;
+ if(category==="board"){const p=BUILTIN_BOARD_THEMES[0];appearanceDraft.colors={...appearanceDraft.colors,...cloneJSON(p.colors)};appearanceDraft.boardThemeId=p.id;}
+ else{const p=BUILTIN_PIECE_SETS[0];appearanceDraft.design=p.design;appearanceDraft.pieceStyle=cloneJSON(p.pieceStyle);appearanceDraft.colors={...appearanceDraft.colors,...cloneJSON(p.colors)};appearanceDraft.pieceSetId=p.id;}
+ appearanceDraft.combinedPresetId=null;appearanceDraft.isModified=true;syncAppearanceForm();refreshAppearanceSelects();previewAppearanceDraft();}
+async function resetAllAppearance(){if(!await appConfirm("Reset all appearance settings to defaults? Your custom preset library will be preserved."))return;appearanceDraft=baseAppearance();syncAppearanceForm();refreshAppearanceSelects();previewAppearanceDraft();}
+function exportAppearanceLibrary(){const payload={format:"ChessTheInfinityAppearanceLibrary",version:1,exportedAt:new Date().toISOString(),custom:cloneJSON(appearanceStore.custom)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="chess-the-infinity-appearance-library.json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
+async function importAppearanceLibrary(file){
+ const d=JSON.parse(await file.text());if(!d||d.format!=="ChessTheInfinityAppearanceLibrary"||!d.custom)throw new Error("This is not a Chess the Infinity appearance library export.");
+ const incoming={boardThemes:[],pieceSets:[],combined:[]};for(const k of Object.keys(incoming)){if(!Array.isArray(d.custom[k]))throw new Error("Missing preset category: "+k);incoming[k]=d.custom[k];}
+ for(const k of Object.keys(incoming))for(const p of incoming[k]){if(!p||typeof p.name!=="string"||typeof p.id!=="string")throw new Error("A preset is missing its name or ID.");if(k==="boardThemes"&&(!p.colors||!BOARD_COLOR_KEYS.every(x=>safeColor(p.colors[x]))))throw new Error("Invalid board theme: "+p.name);if(k==="pieceSets"&&(!p.colors||!PIECE_COLOR_KEYS.every(x=>safeColor(p.colors[x]))||!["classic","serif","minimal","outline","monospace"].includes(p.design)))throw new Error("Invalid piece set: "+p.name);if(k==="combined"&&!validateAppearance(p.appearance).valid)throw new Error("Invalid combined preset: "+p.name);}
+ const previewLines=Object.keys(incoming).map(k=>k+": "+incoming[k].length+" preset(s)").join("\n");
+ const previewNames=Object.keys(incoming).map(k=>incoming[k].map(p=>"• "+p.name).join("\n")).filter(Boolean).join("\n");
+ if(!await appConfirm("Preview appearance library import?\n\n"+previewLines+"\n\n"+previewNames+"\n\nThis does not change your active appearance. Continue to conflict handling?"))return;
+
+ let imported=0,skipped=0;for(const k of Object.keys(incoming))for(const source of incoming[k]){
+  const builtins=k==="boardThemes"?BUILTIN_BOARD_THEMES:k==="pieceSets"?BUILTIN_PIECE_SETS:builtinCombined(),existing=appearanceStore.custom[k].find(p=>p.name.toLowerCase()===source.name.toLowerCase()),builtin=builtins.find(p=>p.name.toLowerCase()===source.name.toLowerCase());let action="rename";
+  if(existing||builtin){const choice=await appPrompt("Preset '"+source.name+"' already exists in "+k+". Type RENAME, SKIP, or OVERWRITE:","RENAME");if(choice===null||choice.trim().toLowerCase()==="skip"){skipped++;continue;}action=choice.trim().toLowerCase();if(!["rename","overwrite"].includes(action)){appAlert("Unknown choice. This preset was skipped.");skipped++;continue;}if(builtin&&action==="overwrite"){appAlert("Built-in presets cannot be overwritten. Choose RENAME or SKIP.");action="rename";}}
+  const copy=cloneJSON(source);if(action==="rename"&&(existing||builtin)){copy.name=source.name+" (Imported)";let n=2;while(builtins.some(p=>p.name.toLowerCase()===copy.name.toLowerCase())||appearanceStore.custom[k].some(p=>p.name.toLowerCase()===copy.name.toLowerCase()))copy.name=source.name+" (Imported "+n+++")";copy.id=makeId(k);}else if(action==="overwrite"&&existing){const i=appearanceStore.custom[k].findIndex(p=>p.id===existing.id);copy.id=existing.id;appearanceStore.custom[k][i]=copy;imported++;continue;}else copy.id=makeId(k);appearanceStore.custom[k].push(copy);imported++;
+ }
+ saveAppearanceStore();refreshAppearanceSelects();appAlert("Appearance library import complete. Imported: "+imported+". Skipped: "+skipped+".");
+}
+function openAppearanceSettings(){beginAppearanceEdit();$("appearanceSettingsDialog").showModal();}
+$("appearanceBtn").addEventListener("click",openAppearanceSettings);
+$("closeAppearanceSettingsBtn").addEventListener("click",()=>closeAppearanceDialog($("appearanceSettingsDialog")));
+$("appearanceSettingsDialog").addEventListener("close",()=>{appearanceDraft=null;appearancePreviewing=false;applyAppearanceCss(appearanceStore.current);});
+$("appearanceSettingsDialog").addEventListener("cancel",event=>{event.preventDefault();closeAppearanceDialog($("appearanceSettingsDialog"));});
+$("appearanceSettingsDialog").addEventListener("click",event=>{if(event.target===$("appearanceSettingsDialog"))closeAppearanceDialog($("appearanceSettingsDialog"));});
+$("boardThemeSelect").addEventListener("change",e=>useBoardTheme(e.target.value));
+$("applyAppearanceBtn").addEventListener("click",applyAppearanceDraft);
+
+window.addEventListener("resize",() => {
+  if (!treeHasFit) fitTree();
+});
+
+if (!window.Chess) {
+  $("saveStatus").textContent="Chess library unavailable";
+  appAlert("The chess rules library could not load. Check your internet connection and reload this page.");
+} else {
+  loadAppearanceStore();
+  const restored = loadSavedState();
+  if (!restored) initTree();
+  else {
+    renderAll();
+    $("saveStatus").textContent = "Saved game restored";
+  }
+
+  applyAppearanceCss(appearanceStore.current);
+  refreshAppearanceSelects();
+  requestAnimationFrame(() => {
+    if (!treeHasFit) fitTree();
+    focusNodeContext(currentId);
+  });
+}
+})();
+</script>
+</body>
+</html>
