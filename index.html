@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chess the Infinity</title>
+<title>Chess the Infinity v1.32.0</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
 <style>
@@ -290,6 +290,40 @@ button:focus-visible { outline:2px solid var(--accent2); outline-offset:2px; }
   background-size:22px 22px;
 }
 .tree-viewport.dragging { cursor:grabbing; }
+.tree-viewport.card-mode { overflow-x:hidden; overflow-y:scroll; overscroll-behavior-y:contain; cursor:default; touch-action:pan-y; background-image:none; user-select:auto; -webkit-user-select:auto; }
+.tree-viewport.card-mode #cardView { display:flex; flex-direction:column; width:100%; min-height:100%; height:auto; overflow:visible; }
+.tree-viewport.card-mode #cardView[hidden] { display:none; }
+.tree-viewport.card-mode .tree-canvas, .tree-viewport.card-mode .tree-help { display:none; }
+.card-view { padding:16px; display:flex; flex-direction:column; gap:18px; min-width:0; }
+.card-view[hidden] { display:none; }
+.card-row { min-width:0; width:100%; }
+.card-carousel { width:100%; }
+.card-track { width:0; max-width:calc(100% - 84px); flex:1 1 0; }
+.card-row-head { display:flex; align-items:baseline; gap:8px; margin:0 0 9px; color:var(--text); font-size:13px; font-weight:750; }
+.card-row-head small { color:var(--muted); font-size:11px; font-weight:500; }
+.card-carousel { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-arrow { flex:0 0 34px; width:34px; height:42px; padding:0; font-size:21px; }
+.card-track { display:flex; gap:12px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:8px 7px 14px; scroll-behavior:smooth; scroll-snap-type:x proximity; flex:1; padding-inline:max(7px,calc((100% - 190px)/2)); }
+.node-card { flex:0 0 190px; width:190px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--text); text-align:left; display:flex; flex-direction:column; gap:8px; white-space:normal; scroll-snap-align:center; }
+.node-card:hover { border-color:var(--accent); background:var(--panel2); }
+.node-card.active { border:2px solid var(--accent2); padding:9px; box-shadow:0 0 0 2px #6ee7d233; }
+.node-card.flagged { border-color:#e6b85c; box-shadow:inset 0 0 0 1px #e6b85c55; }
+.node-card.active.flagged { border-color:#e6b85c; box-shadow:0 0 0 2px #6ee7d233,inset 0 0 0 1px #e6b85c55; }
+.node-flag { color:#f1c66d; font-size:15px; line-height:1; font-weight:900; }
+.tree-node.flagged { border:2px solid #e6b85c; box-shadow:0 0 0 3px #e6b85c33,0 3px 10px #0004; }
+.tree-node.flagged.active { border-color:#e6b85c; }
+#flagList { max-width:180px; min-width:130px; min-height:38px; border:1px solid var(--line); border-radius:8px; background:var(--panel2); color:var(--text); padding:7px 9px; font:inherit; }
+@media(max-width:850px) { #flagList { max-width:145px; min-width:110px; font-size:12px; } }
+.node-card-top { display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:12px; font-weight:800; }
+.node-card-turn { color:var(--accent2); font-size:10px; font-weight:700; }
+.mini-board { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); aspect-ratio:1; width:100%; overflow:hidden; border-radius:5px; border:1px solid #0005; }
+.mini-square { display:flex; align-items:center; justify-content:center; aspect-ratio:1; min-width:0; font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif; font-size:clamp(11px,1.35vw,19px); line-height:1; }
+.mini-square.light { background:var(--light-square); }
+.mini-square.dark { background:var(--dark-square); }
+.mini-piece.white { color:#fff; text-shadow:0 1px 2px #111, 0 0 2px #111; }
+.mini-piece.black { color:#171922; text-shadow:0 1px 1px #fff7; }
+.node-card-foot { display:flex; justify-content:space-between; gap:5px; color:var(--muted); font-size:10px; }
+.card-empty { padding:30px; color:var(--muted); text-align:center; }
 .tree-canvas {
   position:absolute; left:0; top:0; width:1px; height:1px;
   transform-origin:0 0; user-select:none; -webkit-user-select:none;
@@ -610,8 +644,14 @@ dialog.appearance-dialog::backdrop { background:#05060bcc; backdrop-filter:blur(
       <button id="longestBtn" title="Jump to a deepest leaf in the tree">Longest Path</button>
       <button id="fitBtn" title="Fit the entire tree in view">Fit Tree</button>
       <button id="treeDirectionBtn" class="direction-button" title="Cycle between top-down, bottom-up, left-to-right and right-to-left layouts">Tree Layout: Top-Down ↓</button>
+      <button id="cardViewBtn" title="Switch between the node map and card view" aria-pressed="false">Card View</button>
+      <button id="toggleFlagBtn" title="Flag or unflag the selected position">⚑ Flag Position</button>
+      <button id="previousFlagBtn" title="Go to the previous flagged position">← Previous Flag</button>
+      <button id="nextFlagBtn" title="Go to the next flagged position">Next Flag →</button>
+      <select id="flagList" aria-label="Flagged positions" title="Jump directly to a flagged position"><option value="">Flag list (0)</option></select>
     </div>
     <div class="tree-viewport" id="treeViewport">
+      <div class="card-view" id="cardView" hidden aria-label="Node card view"></div>
       <div class="tree-canvas" id="treeCanvas">
         <svg class="tree-svg" id="treeSvg"></svg>
         <div id="treeNodes"></div>
@@ -745,7 +785,7 @@ let panState = null;
 function makeNode(id,parentId,move,fen,ply) {
   return {
     id,parentId,move:move || null,fen,ply,
-    children:[],createdAt:Date.now(),result:null
+    children:[],createdAt:Date.now(),result:null,flagged:false
   };
 }
 
@@ -784,6 +824,61 @@ function initTree() {
 
 function currentNode() { return nodes[currentId]; }
 
+function getFlaggedNodesInTreeOrder() {
+  const flagged=[];
+  const visited=new Set();
+  function visit(id) {
+    if (visited.has(id) || !nodes[id]) return;
+    visited.add(id);
+    if (nodes[id].flagged) flagged.push(nodes[id]);
+    (nodes[id].children || []).forEach(visit);
+  }
+  visit(rootId);
+  return flagged;
+}
+
+function flagLabel(node) {
+  const move=node.id===rootId ? "Starting position" : sanForNode(node);
+  return "P"+(node.ply+1)+" · "+move;
+}
+
+function renderFlagControls() {
+  const flagged=getFlaggedNodesInTreeOrder();
+  const list=$("flagList");
+  if (!list) return;
+  const previousValue=list.value;
+  list.replaceChildren();
+  const placeholder=document.createElement("option");
+  placeholder.value="";
+  placeholder.textContent="Flag list ("+flagged.length+")";
+  list.appendChild(placeholder);
+  flagged.forEach(node=>{
+    const option=document.createElement("option");
+    option.value=node.id;
+    option.textContent="⚑ "+flagLabel(node);
+    list.appendChild(option);
+  });
+  list.value=flagged.some(node=>node.id===previousValue) ? previousValue : "";
+  const index=flagged.findIndex(node=>node.id===currentId);
+  $("toggleFlagBtn").textContent=nodes[currentId]?.flagged ? "⚑ Unflag Position" : "⚑ Flag Position";
+  $("toggleFlagBtn").classList.toggle("active",!!nodes[currentId]?.flagged);
+  $("previousFlagBtn").disabled=flagged.length===0;
+  $("nextFlagBtn").disabled=flagged.length===0;
+  $("previousFlagBtn").title=flagged.length ? "Go to the previous flagged position ("+flagged.length+" total)" : "No flagged positions yet";
+  $("nextFlagBtn").title=flagged.length ? "Go to the next flagged position ("+flagged.length+" total)" : "No flagged positions yet";
+  if (index>=0) list.value=currentId;
+}
+
+function navigateFlag(direction) {
+  const flagged=getFlaggedNodesInTreeOrder();
+  if (!flagged.length) { appAlert("No positions are flagged yet. Select a position and choose Flag Position first."); return; }
+  const index=flagged.findIndex(node=>node.id===currentId);
+  let targetIndex;
+  if (index<0) targetIndex=direction>0 ? 0 : flagged.length-1;
+  else targetIndex=(index+direction+flagged.length)%flagged.length;
+  gotoNode(flagged[targetIndex].id);
+}
+
 function pathTo(id) {
   const path = [];
   let n = nodes[id];
@@ -806,7 +901,9 @@ function gotoNode(id) {
   lastMove = node.move ? {from:node.move.from,to:node.move.to} : null;
   if (autoFlip) flipped = chess.turn() === "b";
   renderAll();
-  centerNode(id);
+  // Card selection updates the active position without moving the hidden tree.
+  // The tree is centered once, when the user switches back to Tree View.
+  if (!cardViewEnabled) centerNode(id);
   saveState();
 }
 
@@ -1004,6 +1101,7 @@ function renderAll() {
   renderHistory();
   renderStatus();
   renderTree();
+  renderFlagControls();
 }
 
 function isVerticalTree() {
@@ -1074,7 +1172,230 @@ function computeTreeLayout() {
   };
 }
 
+let cardViewEnabled = false;
+let cardSelectionInProgress = false;
+
+function renderMiniBoard(fen) {
+  const board = document.createElement("div");
+  board.className = "mini-board";
+  board.setAttribute("aria-hidden","true");
+  let position;
+  try { position = new Chess(fen).board(); } catch (_) { return board; }
+  for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+    const square = document.createElement("div");
+    square.className = "mini-square " + ((r+c)%2===0 ? "light" : "dark");
+    const piece = position[r][c];
+    if (piece) {
+      const glyph = document.createElement("span");
+      glyph.className = "mini-piece " + (piece.color==="w" ? "white" : "black");
+      glyph.textContent = PIECES[piece.color][piece.type];
+      square.appendChild(glyph);
+    }
+    board.appendChild(square);
+  }
+  return board;
+}
+
+function renderNodeCard(n) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "node-card" + (n.id===currentId ? " active" : "") + (n.flagged ? " flagged" : "");
+  el.dataset.nodeId = n.id;
+  let turn = "Side to move";
+  try { turn = new Chess(n.fen).turn()==="w" ? "White to move" : "Black to move"; } catch (_) {}
+  const top = document.createElement("div");
+  top.className = "node-card-top";
+  const move = document.createElement("span");
+  move.textContent = n.id===rootId ? "Starting Position" : sanForNode(n);
+  const ply = document.createElement("span");
+  ply.textContent = "P" + (n.ply+1);
+  if (n.flagged) { const flag=document.createElement("span"); flag.className="node-flag"; flag.textContent="⚑"; flag.setAttribute("aria-label","Flagged position"); top.append(move,flag,ply); }
+  else top.append(move,ply);
+  const turnLabel = document.createElement("div");
+  turnLabel.className = "node-card-turn";
+  turnLabel.textContent = turn;
+  el.append(top,turnLabel,renderMiniBoard(n.fen));
+  const foot = document.createElement("div");
+  foot.className = "node-card-foot";
+  const childCount = document.createElement("span");
+  childCount.textContent = n.children.length + (n.children.length===1 ? " continuation" : " continuations");
+  const branchLabel = document.createElement("span");
+  branchLabel.textContent = n.id===rootId ? "Root" : (n.parentId && nodes[n.parentId] && nodes[n.parentId].children.length>1 ? "Branch" : "");
+  foot.append(childCount,branchLabel);
+  el.appendChild(foot);
+  el.title = "Position " + (n.ply+1) + " · " + turn + " · " + n.fen;
+  el.setAttribute("aria-label","Select position " + (n.ply+1) + ", " + turn);
+  el.addEventListener("click",() => {
+    // Keep the existing carousel DOM alive for card-to-card navigation.
+    cardSelectionInProgress = true;
+    try { gotoNode(n.id); } finally { cardSelectionInProgress = false; }
+  });
+  return el;
+}
+
+function centerCardInRow(card, behavior = "smooth") {
+  if (!card) return;
+  const track = card.closest(".card-row")?.querySelector(".card-track");
+  if (!track) return;
+  const trackRect = track.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const currentCardCenter = cardRect.left + cardRect.width/2;
+  const trackCenter = trackRect.left + track.clientWidth/2;
+  const target = track.scrollLeft + currentCardCenter - trackCenter;
+  track.scrollTo({left:Math.max(0,Math.min(target,track.scrollWidth-track.clientWidth)),behavior});
+}
+
+function renderCardView(revealCurrent = false) {
+  const view = $("cardView");
+
+  // Keep each carousel's position across the redraw triggered by selecting a
+  // node. Row keys are based on the branch's starting node, not its display text.
+  const savedScroll = new Map();
+  view.querySelectorAll(".card-row").forEach(row => {
+    const track = row.querySelector(".card-track");
+    if (track && row.dataset.rowKey) savedScroll.set(row.dataset.rowKey,track.scrollLeft);
+  });
+  view.replaceChildren();
+
+  const addRow = (rowKey, title, subtitle, nodeList) => {
+    if (!nodeList.length) return;
+    const row = document.createElement("section");
+    row.className = "card-row";
+    row.dataset.rowKey = rowKey;
+    const heading = document.createElement("h3");
+    heading.className = "card-row-head";
+    heading.append(document.createTextNode(title));
+    if (subtitle) {
+      const small = document.createElement("small");
+      small.textContent = subtitle;
+      heading.appendChild(small);
+    }
+    const carousel = document.createElement("div");
+    carousel.className = "card-carousel";
+    const left = document.createElement("button");
+    left.type = "button"; left.className = "card-arrow"; left.textContent = "‹";
+    left.setAttribute("aria-label","Scroll " + title + " left");
+    const track = document.createElement("div");
+    track.className = "card-track";
+    nodeList.forEach(n => track.appendChild(renderNodeCard(n)));
+    const right = document.createElement("button");
+    right.type = "button"; right.className = "card-arrow"; right.textContent = "›";
+    right.setAttribute("aria-label","Scroll " + title + " right");
+    const scrollTrack = direction => {
+      const amount = Math.max(180,track.clientWidth*0.8);
+      track.scrollBy({left:direction*amount,behavior:"smooth"});
+    };
+    left.addEventListener("click",() => scrollTrack(-1));
+    right.addEventListener("click",() => scrollTrack(1));
+    carousel.append(left,track,right);
+    row.append(heading,carousel);
+    view.appendChild(row);
+  };
+
+  // A row follows a branch through its ordinary continuation. When a fork is
+  // reached, the first child continues that row and each alternative gets a
+  // separate row of its own.
+  const seenRows = new Set();
+  function addBranchRow(startId, title, subtitle) {
+    const rowNodes = [];
+    let id = startId;
+    while (id && nodes[id] && !rowNodes.includes(nodes[id])) {
+      rowNodes.push(nodes[id]);
+      const children = (nodes[id].children || []).map(cid => nodes[cid]).filter(Boolean);
+      if (!children.length) break;
+      if (children.length > 1) {
+        children.slice(1).forEach((child,index) => {
+          if (!seenRows.has(child.id)) {
+            seenRows.add(child.id);
+            addBranchRow(child.id,"Alternate branch from Position " + (nodes[id].ply+1),"Alternative " + (index+1));
+          }
+        });
+      }
+      id = children[0].id;
+    }
+    if (rowNodes.length) addRow("branch:" + startId,title,subtitle,rowNodes);
+  }
+
+  const root = nodes[rootId];
+  if (root) {
+    const rootChildren = (root.children || []).map(id => nodes[id]).filter(Boolean);
+    addRow("root","Starting position","Root node",[root]);
+    if (rootChildren.length) {
+      rootChildren.slice(1).forEach((child,index) => {
+        if (!seenRows.has(child.id)) {
+          seenRows.add(child.id);
+          addBranchRow(child.id,"Alternate branch from starting position","Alternative " + (index+1));
+        }
+      });
+      addBranchRow(rootChildren[0].id,"mainline","Primary continuation");
+    }
+  }
+  if (!view.children.length) {
+    const empty = document.createElement("div");
+    empty.className = "card-empty";
+    empty.textContent = "No positions to display yet.";
+    view.appendChild(empty);
+  }
+
+  // Restore each row's exact horizontal position after a rebuild.
+  view.querySelectorAll(".card-row").forEach(row => {
+    const track = row.querySelector(".card-track");
+    if (!track) return;
+    const rowKey = row.dataset.rowKey;
+    if (rowKey && savedScroll.has(rowKey)) track.scrollLeft = savedScroll.get(rowKey);
+  });
+
+  // When entering Card View from the node tree, center the current node in
+  // its own carousel. Other rows retain their independent scroll positions.
+  if (revealCurrent) centerCardInRow(view.querySelector(".node-card.active"),"auto");
+}
+function setCardViewEnabled(enabled) {
+  cardViewEnabled = !!enabled;
+  $("treeViewport").classList.toggle("card-mode",cardViewEnabled);
+  $("cardView").hidden = !cardViewEnabled;
+  $("treeCanvas").hidden = cardViewEnabled;
+  $("cardViewBtn").textContent = cardViewEnabled ? "Tree Map View" : "Card View";
+  $("cardViewBtn").setAttribute("aria-pressed",String(cardViewEnabled));
+  if (cardViewEnabled) {
+    renderCardView();
+    // The tree-map selection becomes the active card. Wait one frame so the
+    // newly visible card view has its final layout before measuring/centering.
+    requestAnimationFrame(() => centerCardInRow($("cardView").querySelector(".node-card.active"),"auto"));
+  } else {
+    const viewport = $("treeViewport");
+
+    // Card View uses native scrolling on this same viewport. Reset that scroll
+    // offset before restoring the transformed tree canvas, or both offsets
+    // combine and make the tree appear to drift while zooming.
+    viewport.scrollTop = 0;
+    viewport.scrollLeft = 0;
+
+    renderTree();
+
+    // Wait until the tree canvas is visible and the viewport has its final
+    // dimensions before centering the selected node.
+    requestAnimationFrame(() => {
+      if (cardViewEnabled) return;
+      treeScale = Math.max(treeScale, 0.8);
+      centerNode(currentId);
+    });
+  }
+}
+
 function renderTree() {
+  if (cardViewEnabled) {
+    if (cardSelectionInProgress) {
+      // The selected card stays in the same DOM and viewport; only its active
+      // styling changes, so selecting it cannot reset or animate the carousel.
+      $("cardView").querySelectorAll(".node-card").forEach(card => {
+        card.classList.toggle("active",card.dataset.nodeId===currentId);
+      });
+      centerCardInRow($("cardView").querySelector('.node-card[data-node-id="' + currentId + '"]'));
+      return;
+    }
+    renderCardView();
+    return;
+  }
   const canvas = $("treeCanvas");
   const nodesEl = $("treeNodes");
   const svg = $("treeSvg");
@@ -1122,6 +1443,7 @@ function renderTree() {
     const el=document.createElement("button");
     el.className="tree-node";
     if (n.id===rootId) el.classList.add("root");
+    if (n.flagged) el.classList.add("flagged");
     if (n.id===currentId) el.classList.add("active");
     else if (activePath.has(n.id)) el.classList.add("path");
 
@@ -1163,6 +1485,7 @@ function renderTree() {
       (n.children.length===1 ? " child" : " children");
 
     el.append(move,turn,meta);
+    if (n.flagged) { const flag=document.createElement("span"); flag.className="node-flag"; flag.textContent="⚑ FLAGGED"; el.appendChild(flag); }
 
     if (positionStatus) {
       const status=document.createElement("span");
@@ -1312,12 +1635,15 @@ function zoomTree(factor,cx,cy) {
 }
 
 $("treeViewport").addEventListener("wheel",e => {
+  // In Card View, let native vertical scrolling work. The tree-map wheel
+  // gesture is reserved for zooming only while the map itself is visible.
+  if ($("treeViewport").classList.contains("card-mode")) return;
   e.preventDefault();
   zoomTree(e.deltaY<0 ? 1.12 : 1/1.12,e.clientX,e.clientY);
 },{passive:false});
 
 $("treeViewport").addEventListener("pointerdown",e => {
-  if (e.button!==0 || e.target.closest(".tree-node")) return;
+  if (e.button!==0 || e.target.closest(".tree-node") || e.target.closest("#cardView") || $("treeViewport").classList.contains("card-mode")) return;
   e.preventDefault();
   panState={x:e.clientX,y:e.clientY,tx:treeX,ty:treeY};
   $("treeViewport").classList.add("dragging");
@@ -1338,8 +1664,22 @@ $("treeViewport").addEventListener("pointerup",stopPan);
 $("treeViewport").addEventListener("pointercancel",stopPan);
 $("treeViewport").addEventListener("lostpointercapture",stopPan);
 
+$("cardViewBtn").addEventListener("click",() => setCardViewEnabled(!cardViewEnabled));
 $("fitBtn").addEventListener("click",fitTree);
 $("currentPositionBtn").addEventListener("click",() => focusNodeContext(currentId));
+
+$("toggleFlagBtn").addEventListener("click",() => {
+  const node=currentNode();
+  if (!node) return;
+  node.flagged=!node.flagged;
+  renderAll();
+  saveState();
+});
+$("previousFlagBtn").addEventListener("click",() => navigateFlag(-1));
+$("nextFlagBtn").addEventListener("click",() => navigateFlag(1));
+$("flagList").addEventListener("change",event => {
+  if (event.target.value && nodes[event.target.value]) gotoNode(event.target.value);
+});
 
 $("treeDirectionBtn").addEventListener("click",() => {
   const index=DIRECTIONS.findIndex(d => d.key===treeDirection);
@@ -1583,6 +1923,7 @@ function validateImport(data) {
 
     incoming[n.id]={
       id:n.id,
+      flagged:n.flagged===true,
       parentId:n.parentId || null,
       move:n.move || null,
       fen:n.fen,
