@@ -180,7 +180,7 @@ Difficulty is a planning estimate relative to the current v1.32.0 single-file ap
 
 These are qualitative comparisons based on the described designs, not a full source audit of DVA or Soundthing.
 
-## 7. Proposed Work Order
+## 8. Proposed Work Order
 
 Do not implement this list without a design pass for the selected feature. Recommended order:
 
@@ -192,7 +192,7 @@ Do not implement this list without a design pass for the selected feature. Recom
 
 The user may reorder, defer, or cancel any feature. “Finished” means finished to the scope the user chooses, not that every possible feature must be built.
 
-## 8. Acceptance Tests for Future Changes
+## 9. Acceptance Tests for Future Changes
 
 For every feature:
 - Confirm the requested behavior with the user before coding if any key behavior is ambiguous.
@@ -310,7 +310,7 @@ The current Card View works as an alternate representation of the game tree, but
 - One player's branch exploration cannot silently corrupt the shared game.
 - No credentials or secret keys are embedded in the static frontend.
 
-## 9. Master Document Milestones
+## 10. Master Document Milestones
 
 When the user declares the app complete to the desired scope:
 1. Freeze the latest accepted code version.
