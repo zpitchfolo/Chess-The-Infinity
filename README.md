@@ -1,9 +1,13 @@
 # Chess-The-Infinity
 
-maintenance doc is for maintenance of the chess app to keep it in sync with changes
+Chess the Infinity is maintained in this standalone repository.
 
-milestone is for prompting the same app in a new chat
+## Current files
 
-state machine workflow is for app workflow of any app. This chess game is one example. use it like a module.
+- [index.html](./index.html) — current browser application (v1.32.0).
+- [ChessTheInfinity-Maintenance-v1.4.1.md](./ChessTheInfinity-Maintenance-v1.4.1.md) — current implementation notes, verified behavior, feature queue, and acceptance checks.
+- [ChessTheInfinity-Milestone.md](./ChessTheInfinity-Milestone.md) — reconstruction-oriented project specification.
+- [Development-State-Machine-Workflow-v1.2.0.md](./Development-State-Machine-Workflow-v1.2.0.md) — reusable development workflow adopted by this repository.
+- [testgameV03.json](./testgameV03.json) — example game file for checking JSON import.
 
-test game is if you want to see if importing json games works or see an example
+The maintenance document is the operational reference for the current implementation. The milestone is a broader reconstruction reference; it is not a substitute for checking the current code.
