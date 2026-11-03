@@ -1,7 +1,7 @@
 # Chess the Infinity
-## Maintenance Document v1.3
+## Maintenance Document v1.4
 
-- **Document version:** 1.3.0
+- **Document version:** 1.4.0
 - **Current application version:** 1.32.0
 - **Current implementation filename:** `ChessTheInfinity-Code-v1.32.0.html`
 - **Current source:** [ChessTheInfinity-Code-v1.32.0.html](https://github.com/zpitchfolo/DVAexe/blob/main/Projects/ChessTheInfinity/ChessTheInfinity-Code-v1.32.0.html)
@@ -201,6 +201,52 @@ For every feature:
 
 Additional feature-specific acceptance tests:
 
+### Proposed Card View navigation redesign: branch-centered carousel rows (not implemented)
+
+The current Card View works as an alternate representation of the game tree, but its existing layout is difficult to navigate when many branches are present. The proposed redesign keeps the existing card and node model while changing how the visible branch neighborhood is arranged.
+
+**Core layout**
+
+- The currently selected node is the visual center of the layout.
+- The current branch is shown as one horizontal card sequence through the center. Its previous and next nodes appear to the left and right of the selected card, respectively.
+- Other branches that diverge from the current position are shown in separate horizontal carousel rows above and below the current-branch row.
+- Each alternate-branch row scrolls horizontally and independently, like a Netflix carousel. The rows are vertically arranged around the current branch.
+- Left/right navigation belongs to the current branch. The rows above and below are for browsing alternate branches, not additional directions of travel along the current branch.
+- The exact distribution and ordering of alternate branches above versus below can be refined during design. The essential distinction is that the current branch occupies the center row, while other branch continuations occupy separate rows.
+- The selected card remains identifiable as the current position. Selecting a card navigates to that actual node in the existing tree.
+
+**Behavior and boundaries**
+
+- This is a presentation and navigation redesign, not a change to the underlying chess tree, move rules, or save format.
+- Cards continue to represent existing nodes. Do not create duplicate nodes or flatten separate branches into a single sequence.
+- Browsing an alternate branch must preserve its actual parent/child relationships. Selecting a different node updates the current position and re-centers/reorganizes the visible branch neighborhood around that selection.
+- Each alternate row has its own horizontal scroll state so browsing one branch does not move the other rows.
+- Vertical movement is for reaching the rows above and below; horizontal movement within a row browses that row's branch.
+- Preserve the main board, tree model, flags, move history, persistence, and existing selection synchronization.
+- The existing Tree View remains available and unchanged in purpose. Switching views must not change the selected chess position or mutate the tree.
+- Reuse existing card rendering, selection, and node-navigation logic where practical. Do not rebuild the chess engine or tree data model to implement this layout.
+
+**Design details to resolve before implementation**
+
+- Define precisely which alternate branches appear above and below when the selected node has multiple sibling continuations or when a branch diverges at an ancestor rather than directly at the selected node.
+- Define the ordering of branch rows and the initial scroll/centering behavior when selecting a node or switching views.
+- Decide how to represent long branches, nested variations, terminal result nodes, and rows with no additional cards.
+- Ensure the current branch remains visually distinct from alternate branches without relying on color alone.
+- Determine responsive behavior and keyboard/accessibility navigation for independently scrollable rows.
+
+**Acceptance checks for the proposed redesign**
+
+- The selected node appears in the center current-branch row, with its previous and next nodes positioned to the left and right when they exist.
+- Alternate continuations are displayed in separate rows above and below the current branch.
+- Each alternate row scrolls horizontally and independently; scrolling one row does not move the other rows.
+- The current branch's left/right sequence remains distinct from alternate-branch browsing.
+- Selecting any card selects the corresponding existing node and updates the main playable board, move history, flags, and navigation state.
+- Selecting a node in an alternate branch reorganizes the layout around the newly selected node without changing the underlying tree.
+- All branches remain reachable, including nested variations and long continuations.
+- No node is duplicated, lost, or reparented by changing the view or scrolling.
+- Switching between Card View and Tree View preserves the selected node and game state.
+- The layout remains usable with many branches and at narrower supported viewport widths.
+
 ### Card View and Card-to-Tree Focus
 - Card View displays the same nodes and branch relationships as the existing tree; it does not create duplicate nodes or alter chess logic.
 - Each card renders the actual position and clearly shows whose turn it is.
@@ -273,7 +319,7 @@ When the user declares the app complete to the desired scope:
 
 ## Current Status
 
-- **Maintenance document:** v1.3.0.
+- **Maintenance document:** v1.4.0.
 - **Current application version:** 1.32.0.
 - **Current source:** [ChessTheInfinity-Code-v1.32.0.html](https://github.com/zpitchfolo/DVAexe/blob/main/Projects/ChessTheInfinity/ChessTheInfinity-Code-v1.32.0.html).
 - **Previous source preserved:** `ChessTheInfinity-Code-v1.31.12.html`; earlier versions remain preserved.
@@ -288,5 +334,7 @@ When the user declares the app complete to the desired scope:
 - **Next feature:** a goal-focused view showing branch-start nodes and flagged nodes, without duplicate entries for nodes matching both categories.
 - **Deferred idea:** White/Black node-tree filtering remains a possible future feature; its exact meaning must be clarified before implementation.
 - **Known limitation:** this is a static browser app using external chess.js CDN scripts; online multiplayer requires additional backend infrastructure.
-- **Current feature queue:** goal-focused view for branch starts and flagged nodes; in-app PGN-to-JSON import; target-position progression navigation; a computer opponent; and possible multiplayer.
+- **Current feature queue:** goal-focused view for branch starts and flagged nodes; proposed branch-centered Card View redesign; in-app PGN-to-JSON import; target-position progression navigation; a computer opponent; and possible multiplayer.
+
+- **New design idea (not implemented):** branch-centered Card View with the current branch in a central left/right row and independently horizontally scrollable alternate-branch rows above and below. See “Proposed Card View navigation redesign” and its acceptance checks. The existing Card View remains the current implementation until a future code candidate is built and tested.
 - **Versioning:** new application versions are separate files; previously published versions are preserved. Maintenance documentation is versioned independently from application code.
